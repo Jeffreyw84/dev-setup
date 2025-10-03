@@ -55,4 +55,26 @@ log " - postgresql@14, redis, (optioneel mysql@8.4, mailhog)"
 run "echo 'brew services start postgresql@14 || true'"
 run "echo 'brew services start redis || true'"
 
-log "== klaar (dry-run) =="
+# 6) Git configuratie
+if [[ "$DRY_RUN" == "false" ]]; then
+  log "Git configuratie..."
+  run "$HOME/dev-setup/config/git-config.sh"
+fi
+
+# 7) SSH keys setup
+if [[ "$DRY_RUN" == "false" ]]; then
+  log "SSH configuratie..."
+  run "$HOME/dev-setup/config/ssh-setup.sh"
+fi
+
+# 8) macOS defaults
+if [[ "$DRY_RUN" == "false" ]]; then
+  log "macOS instellingen..."
+  run "bash $HOME/dev-setup/config/macos-defaults.sh"
+fi
+
+log "== klaar (dry-run=$DRY_RUN) =="
+if [[ "$DRY_RUN" == "true" ]]; then
+  log ""
+  log "🚀 Om echt te installeren: DRY_RUN=false ./bootstrap/setup.sh"
+fi
