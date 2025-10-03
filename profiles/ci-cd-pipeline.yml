@@ -1,0 +1,28 @@
+workspace: 3
+layout:
+  columns:
+    - orientation: tiles
+      windows: [github]
+    - orientation: tiles
+      windows: [jenkins]
+    - orientation: tiles
+      windows: [argocd]
+
+windows:
+  - id: github
+    app: chrome
+    url: https://github.com/topicusonderwijs/{{product}}
+    omgeving: {{env}}
+    type: repository
+
+  - id: jenkins
+    app: chrome
+    url: https://jenkins2.topicusonderwijs.nl/job/schoolkwaliteit/job/{{JENKINS_PRODUCT}}/job/{{JENKINS_BRANCH}}/job/{{JENKINS_ENV}}/
+    omgeving: {{env}}
+    type: build
+
+  - id: argocd
+    app: chrome
+    url: https://argocd.{{ARGO_ENV}}.skw.parnassys.k8s.topicus.education/applications/{{ARGO_APP}}
+    omgeving: {{env}}
+    type: deployment

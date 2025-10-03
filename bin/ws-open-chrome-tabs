@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# ws-open-chrome-tabs — open meerdere URLs als tabbladen in één Chrome venster
+set -euo pipefail
+
+urls=()
+
+# Parse alle URL argumenten
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    url=*|url1=*|url2=*|url3=*)
+      urls+=("${1#*=}")
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+
+[[ ${#urls[@]} -gt 0 ]] || { echo "Geen URLs opgegeven"; exit 1; }
+
+# Haal aerospace window count vóór opening
+before_count=$(aerospace list-windows --all | grep -c "Google Chrome" || echo "0")
+
+# Open alle URLs met open command - -n zorgt voor een nieuwe Chrome instantie
+for url in "${urls[@]}"; do
+  if [[ "$url" == "${urls[0]}" ]]; then
+    # Eerste URL: nieuwe Chrome instantie
+    open -n -a "Google Chrome" "$url"
+    sleep 0.5
+  else
+    # Extra URLs: normale open (gaat naar bestaand venster)
+    open -a "Google Chrome" "$url"
+    sleep 0.2
+  fi
+done
+
+# Wacht tot nieuwe venster verschijnt in aerospace
+sleep 1
+max_wait=10
+count=0
+
+while (( count < max_wait )); do
+  after_count=$(aerospace list-windows --all | grep -c "Google Chrome" || echo "0")
+  if (( after_count > before_count )); then
+    # Geef het nieuwste Chrome venster ID terug
+    aerospace list-windows --all | grep "Google Chrome" | tail -1 | awk '{print $1}'
+    exit 0
+  fi
+  sleep 0.5
+  (( count++ ))
+done
+
+echo "Error: Nieuwe Chrome venster niet gedetecteerd" >&2
+exit 1

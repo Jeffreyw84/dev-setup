@@ -1,0 +1,26 @@
+
+workspace: 2
+layout:
+  columns:
+    - orientation: v_accordion
+      windows: [web, gitui]
+    - orientation: v_accordion
+      windows: [rubymine, code]
+
+windows:
+  - id: web
+    app: chrome
+    url: "{{develop_url}}"
+
+  - id: gitui
+    app: ghostty
+    dir: /Users/jeffrey/Documents/Projects/{{product}}
+    cmd: lazygit
+
+  - id: rubymine
+    app: rubymine
+    project: /Users/jeffrey/Documents/Projects/{{product}}
+
+  - id: code
+    app: vscode
+    project: /Users/jeffrey/Documents/Projects/{{product}}

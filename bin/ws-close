@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# ws-close — sluit alle vensters in een workspace
+set -euo pipefail
+
+WORKSPACE=""
+FORCE=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -w|--workspace) WORKSPACE="$2"; shift 2 ;;
+    -f|--force) FORCE=true; shift ;;
+    *) echo "Usage: $0 --workspace <number> [--force]"; exit 1 ;;
+  esac
+done
+
+[[ -n "$WORKSPACE" ]] || { echo "Error: geen workspace opgegeven"; exit 1; }
+
+AERO_BIN="${AERO_BIN:-$(command -v aerospace || true)}"
+[[ -n "$AERO_BIN" ]] || { echo "aerospace niet gevonden" >&2; exit 1; }
+aero() { "$AERO_BIN" "$@"; }
+
+echo "== Sluiting workspace $WORKSPACE =="
+
+# Haal alle venster IDs op in deze workspace
+WINDOW_IDS=($(aero list-windows --workspace "$WORKSPACE" --format '%{window-id}' 2>/dev/null || true))
+
+if [[ ${#WINDOW_IDS[@]} -eq 0 ]]; then
+  echo "Geen vensters gevonden in workspace $WORKSPACE"
+  exit 0
+fi
+
+echo "Gevonden ${#WINDOW_IDS[@]} venster(s) in workspace $WORKSPACE"
+
+# Sluit elk venster
+for wid in "${WINDOW_IDS[@]}"; do
+  if [[ -n "$wid" ]]; then
+    # Haal app informatie op door alle vensters te scannen
+    APP_INFO=$(aero list-windows --workspace "$WORKSPACE" --format '%{window-id} %{app-bundle-id}' | grep "^$wid " | awk '{print $2}' || echo "unknown")
+    
+    echo "Sluiting venster $wid ($APP_INFO)..."
+    
+    # Speciale behandeling voor verschillende apps
+    case "$APP_INFO" in
+      com.mitchellh.ghostty)
+        echo "Ghostty detected..."
+        # Normale sluiting (confirmation dialog is uitgeschakeld)
+        aero close --window-id "$wid" 2>/dev/null || true
+        ;;
+      com.jetbrains.rubymine)
+        echo "RubyMine detected..."
+        # Haal de PID van deze RubyMine instantie op
+        RUBYMINE_PID=$(ps aux | grep -E "rubymine|RubyMine" | grep -v grep | awk '{print $2}' | head -1)
+        
+        # Voor RubyMine: sluit altijd de hele app om welcome screens te voorkomen
+        echo "RubyMine gedetecteerd - sluiting hele app om welcome screens te voorkomen..."
+        osascript -e 'quit app "RubyMine"' 2>/dev/null || true
+        sleep 1
+        # Force kill als het niet werkt
+        if aero list-windows --workspace "$WORKSPACE" | grep -q "^$wid "; then
+          pkill -f "rubymine" 2>/dev/null || true
+        fi
+        
+        # Sluit alleen Ruby processen die child processen zijn van deze RubyMine instantie
+        if [[ -n "$RUBYMINE_PID" ]]; then
+          echo "Zoeken naar Ruby processen gestart door RubyMine PID $RUBYMINE_PID..."
+          # Zoek child processen recursief
+          CHILD_PIDS=$(pgrep -P "$RUBYMINE_PID" 2>/dev/null || true)
+          for child_pid in $CHILD_PIDS; do
+            # Check of het een Ruby proces is
+            if ps -p "$child_pid" -o comm= 2>/dev/null | grep -q ruby; then
+              echo "Sluiting Ruby child proces $child_pid..."
+              kill -TERM "$child_pid" 2>/dev/null || true
+            fi
+            # Check ook grandchildren (Ruby servers gestart via shell)
+            GRANDCHILD_PIDS=$(pgrep -P "$child_pid" 2>/dev/null || true)
+            for grandchild_pid in $GRANDCHILD_PIDS; do
+              if ps -p "$grandchild_pid" -o comm= 2>/dev/null | grep -q ruby; then
+                echo "Sluiting Ruby grandchild proces $grandchild_pid..."
+                kill -TERM "$grandchild_pid" 2>/dev/null || true
+              fi
+            done
+          done
+        else
+          echo "Geen RubyMine PID gevonden - skip Ruby proces cleanup"
+        fi
+        ;;
+      com.apple.Terminal|com.googlecode.iterm2)
+        echo "Terminal app detected, using force close..."
+        aero close --window-id "$wid" 2>/dev/null || true
+        ;;
+      *)
+        # Voor andere apps: normale sluiting
+        if [[ "$FORCE" == "true" ]]; then
+          aero close --window-id "$wid" 2>/dev/null || true
+        else
+          aero close --window-id "$wid" 2>/dev/null || true
+        fi
+        ;;
+    esac
+    sleep 0.1
+  fi
+done
+
+# Laatste check: sluit eventuele overgebleven welcome vensters
+echo "Laatste check voor achtergebleven vensters..."
+REMAINING_WELCOME=$(aero list-windows --workspace "$WORKSPACE" 2>/dev/null | grep -i "Welcome to" | wc -l | tr -d ' \n' || echo "0")
+
+if [[ "$REMAINING_WELCOME" -gt 0 ]]; then
+  echo "Er zijn nog $REMAINING_WELCOME welcome venster(s) - force quit van JetBrains apps..."
+  osascript -e 'quit app "RubyMine"' 2>/dev/null || true
+  pkill -f "rubymine" 2>/dev/null || true
+  sleep 1
+  # Check nogmaals en force close individuele vensters
+  aero list-windows --workspace "$WORKSPACE" --format '%{window-id}' 2>/dev/null | while read -r wid; do
+    if [[ -n "$wid" ]]; then
+      aero close --window-id "$wid" 2>/dev/null || true
+    fi
+  done
+else
+  echo "Alle vensters succesvol gesloten."
+fi
+
+echo "== Workspace $WORKSPACE gesloten =="

@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# ws-open — generieke opener (bash 3.2 compatible) - robuuste versie
+set -euo pipefail
+
+APP=""; URL="about:blank"; DIR="$HOME"; CMD=""; PROJECT=""
+
+for kv in "$@"; do
+  case "$kv" in
+    app=*)     APP="${kv#*=}" ;;
+    url=*)     URL="${kv#*=}" ;;
+    dir=*)     DIR="${kv#*=}" ;;
+    cmd=*)     CMD="${kv#*=}" ;;
+    project=*) PROJECT="${kv#*=}" ;;
+    *) ;; # negeer onbekende keys
+  esac
+done
+
+[[ -n "$APP" ]] || { echo "app= is verplicht" >&2; exit 1; }
+
+AERO="${AERO_BIN:-$(command -v aerospace || true)}"
+[[ -x "$AERO" ]] || AERO="/opt/homebrew/bin/aerospace"
+[[ -x "$AERO" ]] || { echo "aerospace niet gevonden" >&2; exit 1; }
+
+BID=""; open_cmd=()
+
+# Definieer functies
+list_ids() { 
+  "$AERO" list-windows --monitor all --app-bundle-id "$BID" --format '%{window-id}' 2>/dev/null || true
+}
+
+# Wacht tot applicatie daadwerkelijk is geladen
+wait_for_app_launch() {
+  local bundle_id="$1"
+  local max_wait=20  # maximaal 20 seconden wachten
+  local count=0
+  
+  echo "Waiting for $bundle_id to launch..." >&2
+  while (( count < max_wait )); do
+    # Controleer of de app draait door te kijken naar actieve processes
+    if pgrep -i "$(echo "$bundle_id" | sed 's/.*\.//')" >/dev/null 2>&1; then
+      echo "App launched successfully" >&2
+      sleep 1  # geef app tijd om window te maken
+      return 0
+    fi
+    sleep 0.5
+    (( count++ ))
+  done
+  echo "App failed to launch within ${max_wait}s" >&2
+  return 1
+}
+
+case "$APP" in
+  chrome)
+    BID="com.google.Chrome"
+    # Chrome: forceer altijd een nieuw venster, ook als Chrome al draait
+    open_cmd=(open -a "Google Chrome" --args --new-window "$URL")
+    ;;
+  ghostty)
+    BID="com.mitchellh.ghostty"
+    if [[ -n "$CMD" ]]; then
+      open_cmd=(open -n -b "$BID" --args --working-directory="$DIR" --command="$CMD")
+    else
+      open_cmd=(open -n -b "$BID" --args --working-directory="$DIR")
+    fi
+    ;;
+  rubymine)
+    BID="com.jetbrains.rubymine"
+    [[ -n "$PROJECT" ]] || { echo "project= vereist voor rubymine" >&2; exit 1; }
+    # Gebruik command line tool met line parameter en JVM splash disable
+    open_cmd=(rubymine --line 1 -Dsplash=false "$PROJECT")
+    ;;
+  vscode)
+    BID="com.microsoft.VSCode"
+    [[ -n "$PROJECT" ]] || { echo "project= vereist voor vscode" >&2; exit 1; }
+    # Gebruik code command voor nieuwe vensters
+    open_cmd=(code --new-window "$PROJECT")
+    ;;
+  *)
+    echo "Onbekende app: $APP" >&2
+    exit 1
+    ;;
+esac
+
+before="$(list_ids | tr '\n' ' ')"
+echo "Opening $APP..." >&2
+
+# Speciale behandeling voor Chrome om nieuw venster te forceren
+if [[ "$APP" == "chrome" ]]; then
+  # Gebruik AppleScript om een nieuw Chrome venster te forceren
+  osascript <<EOF >/dev/null 2>&1 || { echo "Failed to execute AppleScript" >&2; exit 1; }
+tell application "Google Chrome"
+    activate
+    make new window
+    set URL of active tab of front window to "$URL"
+end tell
+EOF
+elif [[ "$APP" == "rubymine" ]]; then
+  # Voor RubyMine: gebruik command line tool om direct project te openen (vermijdt welcome screen)
+  "${open_cmd[@]}" >/dev/null 2>&1 &
+else
+  # Voor andere apps: normale opening
+  "${open_cmd[@]}" >/dev/null 2>&1 || { echo "Failed to execute open command" >&2; exit 1; }
+fi
+
+# Wacht tot het nieuwe venster verschijnt (simpelere benadering)
+echo "Waiting for new window to appear..." >&2
+tries=80  # 20 seconden (80 * 0.25s)
+while (( tries-- > 0 )); do
+  after="$(list_ids | tr '\n' ' ')"
+  for id in $after; do
+    [[ " $before " == *" $id "* ]] || { 
+      echo "New window detected: $id" >&2
+      echo "$id"
+      exit 0
+    }
+  done
+  sleep 0.25
+done
+
+echo "Kon geen nieuw venster vinden voor $APP ($BID)" >&2
+exit 1

@@ -1,0 +1,463 @@
+#!/usr/bin/env bash
+# workspace — generieke engine die een YAML-profiel uitvoert in Aerospace
+set -euo pipefail
+
+
+PROFILE=""
+CLEAN=false
+PRODUCT=""
+ENVIRONMENT=""
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -p|--profile) PROFILE="$2"; shift 2 ;;
+    -c|--clean) CLEAN=true; shift ;;
+    --product) PRODUCT="$2"; shift 2 ;;
+    --env) ENVIRONMENT="$2"; shift 2 ;;
+    *) echo "Usage: $0 --profile <name> [--clean] [--product <naam>] [--env <naam>]"; exit 1 ;;
+  esac
+done
+[[ -n "$PROFILE" ]] || { echo "Error: geen profile opgegeven"; exit 1; }
+
+PROFILE_FILE="$HOME/dev-setup/profiles/$PROFILE.yml"
+[[ -f "$PROFILE_FILE" ]] || { echo "Profile niet gevonden: $PROFILE_FILE"; exit 1; }
+
+# Product verplicht voor develop-dhh en profielen met {{product}}
+if [[ "$PROFILE" == "develop-dhh" ]] || grep -q '{{product}}' "$PROFILE_FILE"; then
+  [[ -n "$PRODUCT" ]] || { echo "Error: geen product opgegeven (gebruik --product <naam>)"; exit 1; }
+fi
+# Omgeving alleen verplicht als {{env}} in profiel voorkomt
+if grep -q '{{env}}' "$PROFILE_FILE"; then
+  [[ -n "$ENVIRONMENT" ]] || { echo "Error: geen omgeving opgegeven (gebruik --env <naam>)"; exit 1; }
+fi
+
+# deps
+YQ_BIN="${YQ_BIN:-$(command -v yq || true)}"
+JQ_BIN="${JQ_BIN:-$(command -v jq || true)}"
+AERO_BIN="${AERO_BIN:-$(command -v aerospace || true)}"
+[[ -n "$YQ_BIN" && -n "$JQ_BIN" && -n "$AERO_BIN" ]] || { echo "Ontbrekende tools: yq/jq/aerospace"; exit 1; }
+aero() { "$AERO_BIN" "$@"; }
+
+echo "== workspace ($PROFILE) =="
+
+WS="$("$YQ_BIN" -r '.workspace // "2"' "$PROFILE_FILE")"
+
+
+# verzamel windows-defs als JSON
+RAW_WINDOWS_JSON="$("$YQ_BIN" -o=json '.windows' "$PROFILE_FILE")"
+RAW_LAYOUT_JSON="$("$YQ_BIN" -o=json '.layout.columns' "$PROFILE_FILE")"
+
+# generieke placeholder-vervanging functie
+replace_placeholders() {
+  local input="$1"
+  # Vervang {{env}} eerst
+  input="${input//\{\{env\}\}/$ENVIRONMENT}"
+
+  # Jenkins/ArgoCD mappings: standaard generiek, maar kan uitgebreid worden
+
+  local jenkins_product="$PRODUCT"
+  local jenkins_branch="develop"
+  local jenkins_env="develop"
+  local argo_env="sandbox"
+  local argo_app="$PRODUCT"
+  local github_repo="$PRODUCT"
+  local develop_url=""
+
+  # Mapping voor Jenkins omgeving en branch/folder per product
+  case "$PRODUCT" in
+    dhh)
+      github_repo="dhh"
+      jenkins_product="DHH"
+      develop_url="http://99de.dhh.local:3000/"
+      case "$ENVIRONMENT" in
+        test)
+          jenkins_env="develop"
+          jenkins_branch="dhh_develop"
+          argo_env="sandbox"
+          argo_app="test-dhh"
+          ;;
+        acceptatie)
+          jenkins_env="release"
+          jenkins_branch="dhh_release"
+          argo_env="nonprod"
+          argo_app="acceptance-dhh"
+          ;;
+        productie)
+          jenkins_env="main"
+          jenkins_branch="dhh_main"
+          argo_env="prod"
+          argo_app="production-dhh"
+          ;;
+      esac
+      ;;
+    wmk)
+      github_repo="wmk"
+      jenkins_product="WMK"
+      develop_url="http://99ef.wmkpo.local:3000/"
+      case "$ENVIRONMENT" in
+        test)
+          jenkins_env="develop"
+          jenkins_branch="wmk_develop"
+          argo_env="sandbox"
+          argo_app="test-wmk"
+          ;;
+        acceptatie)
+          jenkins_env="release"
+          jenkins_branch="wmk_release"
+          argo_env="nonprod"
+          argo_app="acceptance-wmk"
+          ;;
+        productie)
+          jenkins_env="main"
+          jenkins_branch="wmk_main"
+          argo_env="prod"
+          argo_app="production-wmk"
+          ;;
+      esac
+      ;;
+    msp)
+      github_repo="mijnschoolplan"
+      jenkins_product="Mijnschoolplan"
+      develop_url="http://beheer.mijnschoolplan.local:3000/"
+      case "$ENVIRONMENT" in
+        test)
+          jenkins_env="develop"
+          jenkins_branch="mijnschoolplan_develop"
+          argo_env="sandbox"
+          argo_app="test-mijnschoolplan"
+          ;;
+        acceptatie)
+          jenkins_env="release"
+          jenkins_branch="msp_release"
+          argo_env="nonprod"
+          argo_app="acceptance-mijnschoolplan"
+          ;;
+        productie)
+          jenkins_env="main"
+          jenkins_branch="msp_main"
+          argo_env="prod"
+          argo_app="production-mijnschoolplan"
+          ;;
+      esac
+      ;;
+    mst)
+      github_repo="mijnschoolteam"
+      jenkins_product="Mijnschoolteam"
+      develop_url="http://99de.mijnschoolteam.local:3000/"
+      case "$ENVIRONMENT" in
+        test)
+          jenkins_env="develop"
+          jenkins_branch="mijnschoolteam_develop"
+          argo_env="sandbox"
+          argo_app="test-mijnschoolteam"
+          ;;
+        acceptatie)
+          jenkins_env="release"
+          jenkins_branch="mijnschoolteam_release"
+          argo_env="nonprod"
+          argo_app="acceptance-mijnschoolteam"
+          ;;
+        productie)
+          jenkins_env="main"
+          jenkins_branch="mst_main"
+          argo_env="prod"
+          argo_app="production-mijnschoolteam"
+          ;;
+      esac
+      ;;
+    *)
+      # Default mapping voor onbekende producten
+      github_repo="$PRODUCT"
+      jenkins_product="$PRODUCT"
+      develop_url="http://$PRODUCT-default.local:3000/"
+      case "$ENVIRONMENT" in
+        test)
+          jenkins_env="develop"
+          jenkins_branch="${PRODUCT}_develop"
+          argo_env="sandbox"
+          argo_app="test-$PRODUCT"
+          ;;
+        acceptatie)
+          jenkins_env="release"
+          jenkins_branch="${PRODUCT}_release"
+          argo_env="nonprod"
+          argo_app="acceptance-$PRODUCT"
+          ;;
+        productie)
+          jenkins_env="prod"
+          jenkins_branch="${PRODUCT}_prod"
+          argo_env="prod"
+          argo_app="prod-$PRODUCT"
+          ;;
+      esac
+      ;;
+  esac
+
+  input="${input//\{\{JENKINS_PRODUCT\}\}/$jenkins_product}"
+  input="${input//\{\{JENKINS_BRANCH\}\}/$jenkins_branch}"
+  input="${input//\{\{JENKINS_ENV\}\}/$jenkins_env}"
+  input="${input//\{\{ARGO_ENV\}\}/$argo_app}"
+  input="${input//\{\{ARGO_APP\}\}/$argo_app}"
+  
+  # Vervang product placeholder met de juiste GitHub repository naam
+  input="${input//\{\{product\}\}/$github_repo}"
+  
+  # Vervang develop_url placeholder met de juiste URL
+  input="${input//\{\{develop_url\}\}/$develop_url}"
+
+  echo "$input"
+}
+
+# Pas placeholders toe op JSON
+WINDOWS_JSON="$(replace_placeholders "$RAW_WINDOWS_JSON")"
+LAYOUT_JSON="$(replace_placeholders "$RAW_LAYOUT_JSON")"
+
+# helper die opener kiest (specifiek of generiek) en WID teruggeeft
+open_item() {
+  local app="$1"; shift
+  local args=("$@")
+  
+  # Speciale behandeling voor chrome-tabs
+  if [[ "$app" == "chrome-tabs" ]]; then
+    local HELPER_TABS="$HOME/dev-setup/bin/ws-open-chrome-tabs"
+    echo "Opening chrome-tabs..." >&2
+    if [[ -x "$HELPER_TABS" ]]; then
+      "$HELPER_TABS" "${args[@]}"
+    else
+      echo "⚠️  Chrome-tabs opener niet gevonden: $HELPER_TABS" >&2
+      return 1
+    fi
+    return
+  fi
+  
+  local HELPER_SPEC="$HOME/dev-setup/bin/ws-open-$app"
+  local HELPER_GEN="$HOME/dev-setup/bin/ws-open"
+  
+  echo "Opening $app..." >&2
+  
+  if [[ -x "$HELPER_SPEC" ]]; then
+    "$HELPER_SPEC" "${args[@]}"
+  elif [[ -x "$HELPER_GEN" ]]; then
+    "$HELPER_GEN" "app=$app" "${args[@]}"
+  else
+    echo "⚠️  Geen opener gevonden voor app: $app" >&2
+    return 1
+  fi
+}
+
+# Verbeterde retry functie met exponential backoff
+retry_with_backoff() {
+  local max_attempts="$1"; shift
+  local delay=1  # start met 1 seconde
+  local attempt=1
+  
+  while (( attempt <= max_attempts )); do
+    if "$@"; then
+      return 0
+    fi
+    
+    if (( attempt < max_attempts )); then
+      echo "Attempt $attempt failed, retrying in ${delay}s..." >&2
+      sleep "$delay"
+      delay=$((delay * 2))  # verdubbel delay elke keer (zonder bc)
+      if (( delay > 8 )); then delay=8; fi  # max 8 seconden
+    fi
+    (( attempt++ ))
+  done
+  
+  echo "Command failed after $max_attempts attempts: $*" >&2
+  return 1
+}
+
+# Wacht tot venster daadwerkelijk in aerospace verschijnt
+wait_for_window() {
+  local wid="$1"
+  local max_wait=10
+  local count=0
+  
+  while (( count < max_wait )); do
+    if aero list-windows --all | grep -q "$wid"; then
+      return 0
+    fi
+    sleep 0.5
+    (( count++ ))
+  done
+  return 1
+}
+
+# map: logical id -> WID (we houden het simpel met twee arrays)
+ID_KEYS=()
+ID_VALS=()
+set_id_wid() { ID_KEYS+=("$1"); ID_VALS+=("$2"); }
+get_wid_for_id() {
+  local key="$1"
+  local i
+  for ((i=0;i<${#ID_KEYS[@]};i++)); do
+    [[ "${ID_KEYS[$i]}" == "$key" ]] && { echo "${ID_VALS[$i]}"; return 0; }
+  done
+  return 1
+}
+
+# Workspace actief en baseline schoon
+
+# Workspace altijd schoon maken
+aero workspace "$WS" || true
+sleep 0.2
+echo "Sluiting bestaande vensters in workspace $WS..."
+"$HOME/dev-setup/bin/ws-close" --workspace "$WS" 2>/dev/null || true
+sleep 0.5
+
+aero flatten-workspace-tree || true
+aero layout tiles || true
+
+# Verzamel alle window IDs
+CHROME_WID=""
+GHOSTTY_WID=""
+RUBYMINE_WID=""
+VSCODE_WID=""
+
+# Open per kolom: anchor eerst, daarna rest. Dwing kolompositie + v_accordion indien gevraagd.
+cols_count="$(echo "$LAYOUT_JSON" | "$JQ_BIN" 'length')"
+(( cols_count > 0 )) || { echo "Profiel heeft geen layout.columns"; exit 1; }
+
+for col_idx in $(seq 0 $((cols_count-1))); do
+  # ids in deze kolom (bash 3.2 compatible)
+  IDS=()
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && IDS+=("$line")
+  done < <(echo "$LAYOUT_JSON" | "$JQ_BIN" -r ".[$col_idx].windows[]")
+  ORIENT="$(echo "$LAYOUT_JSON" | "$JQ_BIN" -r ".[$col_idx].orientation // \"vertical\"")"
+
+  # anchor item ophalen (id -> volledige windows-record)
+  anchor_id="${IDS[0]}"
+  anchor_item="$(echo "$WINDOWS_JSON" | "$JQ_BIN" -c ".[] | select(.id==\"$anchor_id\")")"
+  [[ -n "$anchor_item" ]] || { echo "Onbekende window id in layout: $anchor_id"; exit 1; }
+
+  app="$(echo "$anchor_item" | "$JQ_BIN" -r '.app')"
+  # bouw key=val args (excl. app/id)
+  read -r -a kvs <<<"$(echo "$anchor_item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\(.value|tostring)") | join(" ")')"
+
+  wid="$(open_item "$app" "${kvs[@]}")" || { echo "Openen faalde: $app"; exit 1; }
+  
+  # Wacht tot venster beschikbaar is
+  if ! wait_for_window "$wid"; then
+    echo "Warning: Window $wid not found in aerospace, continuing anyway..." >&2
+  fi
+  
+  set_id_wid "$anchor_id" "$wid"
+  
+  # Sla WIDs op voor later gebruik
+  case "$anchor_id" in
+    web) CHROME_WID="$wid" ;;
+    gitui) GHOSTTY_WID="$wid" ;;
+    rubymine) RUBYMINE_WID="$wid" ;;
+    code) VSCODE_WID="$wid" ;;
+  esac
+  
+  retry_with_backoff 3 aero move-node-to-workspace --window-id "$wid" "$WS" || true
+  sleep 0.2
+
+  # overige windows in kolom
+  if (( ${#IDS[@]} > 1 )); then
+    for w_id in "${IDS[@]:1}"; do
+      item="$(echo "$WINDOWS_JSON" | "$JQ_BIN" -c ".[] | select(.id==\"$w_id\")")"
+      [[ -n "$item" ]] || { echo "Onbekende window id: $w_id"; exit 1; }
+      wapp="$(echo "$item" | "$JQ_BIN" -r '.app')"
+      read -r -a wargs <<<"$(echo "$item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\(.value|tostring)") | join(" ")')"
+
+      w_wid="$(open_item "$wapp" "${wargs[@]}")" || { echo "Openen faalde: $wapp"; exit 1; }
+      
+      # Wacht tot venster beschikbaar is
+      if ! wait_for_window "$w_wid"; then
+        echo "Warning: Window $w_wid not found in aerospace, continuing anyway..." >&2
+      fi
+      
+      set_id_wid "$w_id" "$w_wid"
+      
+      # Sla WIDs op voor later gebruik
+      case "$w_id" in
+        web) CHROME_WID="$w_wid" ;;
+        gitui) GHOSTTY_WID="$w_wid" ;;
+        rubymine) RUBYMINE_WID="$w_wid" ;;
+        code) VSCODE_WID="$w_wid" ;;
+      esac
+      
+  retry_with_backoff 3 aero move-node-to-workspace --window-id "$w_wid" "$WS" || true
+  echo "[DEBUG] Na move-node-to-workspace ($w_id):"
+  /opt/homebrew/bin/aerospace list-windows --workspace "$WS"
+  sleep 0.2
+    done
+  fi
+done
+
+
+
+# Switch naar juiste workspace en forceer h_tiles layout
+retry_with_backoff 3 aero workspace "$WS" || true
+aero flatten-workspace-tree || true
+first_window_id="$(get_wid_for_id "$(echo "$LAYOUT_JSON" | "$JQ_BIN" -r '.[0].windows[0]')" || true)"
+if [[ -n "$first_window_id" ]]; then
+  retry_with_backoff 3 aero layout h_tiles --window-id "$first_window_id" || true
+fi
+
+# Check of dit een develop profiel is (heeft Chrome, Ghostty, RubyMine, VSCode)
+if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" && -n "$RUBYMINE_WID" && -n "$VSCODE_WID" ]]; then
+  # Deterministische aanpak voor develop profiel: force baseline en bouw deterministisch
+  echo "Creating deterministic v_accordion layout for develop profile..." >&2
+
+  # Wacht even om te zorgen dat alle vensters klaar zijn
+  sleep 1
+
+  echo "Chrome WID: $CHROME_WID (browser links)" >&2
+  echo "Ghostty WID: $GHOSTTY_WID (terminal links)" >&2  
+  echo "RubyMine WID: $RUBYMINE_WID (IDE rechts)" >&2
+  echo "VSCode WID: $VSCODE_WID (editor rechts)" >&2
+
+  # --- force baseline: tiles, dan 2 kolommen zonder joins ---
+  echo "Setting baseline workspace state..." >&2
+  aero workspace "$WS" || true
+  # trek de boom vlak om oude containers te vermijden
+  aero flatten-workspace-tree || true
+
+  # bouw twee kolommen deterministisch (zonder joins)
+  echo "Building two columns deterministically..." >&2
+  retry_with_backoff 5 aero move left  --window-id "$CHROME_WID"  || true   # Chrome links verzekeren
+  retry_with_backoff 5 aero move left  --window-id "$GHOSTTY_WID" || true   # Ghostty links verzekeren
+  retry_with_backoff 5 aero move right --window-id "$RUBYMINE_WID" || true  # RubyMine naar rechts
+  retry_with_backoff 5 aero move right --window-id "$VSCODE_WID"  || true  # VSCode naar rechts
+
+  echo "Joining windows within columns..." >&2
+  retry_with_backoff 5 aero join-with left --window-id "$VSCODE_WID" || true
+  retry_with_backoff 5 aero join-with left --window-id "$GHOSTTY_WID" || true
+
+  echo "Setting v_accordion layouts..." >&2
+  retry_with_backoff 5 aero layout v_accordion --window-id "$CHROME_WID"   || true   # linkerkolom
+  retry_with_backoff 5 aero layout v_accordion --window-id "$VSCODE_WID" || true   # rechterkolom
+
+  echo "Final adjustments..." >&2
+  retry_with_backoff 5 aero balance-sizes || true
+  retry_with_backoff 5 aero focus --window-id "$CHROME_WID" || true
+
+  echo "Layout complete: Deterministic 2-column v_accordion setup" >&2
+else
+  echo "Skipping v_accordion layout (not a develop profile with 4 standard apps)" >&2
+  echo "Using default layout from profile configuration" >&2
+  aero workspace "$WS" || true
+  aero balance-sizes || true
+fi
+
+# Balance de kolommen voor betere verdeling
+echo "Balancing columns..." >&2
+retry_with_backoff 3 aero balance-sizes || true
+sleep 0.2
+
+# Aerospace focus naar workspace
+retry_with_backoff 3 aero workspace "$WS" || true
+
+# Focus op Chrome als finale focus (alleen voor develop profiel)
+if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" && -n "$RUBYMINE_WID" && -n "$VSCODE_WID" ]]; then
+  echo "Setting focus to Chrome as final focus..." >&2
+  retry_with_backoff 3 aero focus --window-id "$RUBYMINE_WID" || true
+fi
+
+echo "== klaar =="

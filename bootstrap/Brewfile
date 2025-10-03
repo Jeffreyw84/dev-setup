@@ -1,0 +1,90 @@
+tap "homebrew/services"
+tap "nikitabobko/tap"   # Aerospace
+
+# =========================
+# CORE (aan laten staan)
+# =========================
+
+# --- CLI essentials ---
+brew "git"
+brew "jq"
+brew "gawk"
+brew "yq"
+brew "zoxide"
+brew "tree"
+brew "coreutils"
+brew "openssl@3"
+brew "nvm"
+
+# --- Dev/workflow ---
+brew "lazygit"
+brew "k9s"
+brew "kubernetes-cli"
+
+# --- Datastores (laat alleen staan wat jij echt gebruikt) ---
+brew "postgresql@14", restart_service: :changed
+brew "mysql@8.4",     restart_service: :changed
+brew "redis",         restart_service: :changed
+brew "mailhog",       restart_service: :changed
+
+# --- Apps (GUI) ---
+cask "google-chrome"
+cask "visual-studio-code"
+cask "ghostty"
+cask "slack"
+cask "aerospace"
+
+# --- Keyboard remapping setup ---
+# Let op: Karabiner-Elements installeert de low-level keyboard driver
+#         -> Zonder Karabiner werkt je toetsenbord NIET, ook al gebruik je Kanata
+# Kanata doet de daadwerkelijke remaps en draait via je LaunchDaemon
+# Kortom: je hebt BEIDE nodig voor een werkend toetsenbord
+cask "karabiner-elements"   # keyboard driver (verplicht)
+brew "kanata"               # eigenlijke remaps via config/LaunchDaemon
+
+# --- VS Code extensions ---
+vscode "github.copilot"
+vscode "github.copilot-chat"
+vscode "bierner.markdown-mermaid"
+vscode "karunamurti.haml"
+
+# =========================
+# OPTIONEEL / HISTORIEK
+# (alles hieronder blijft als referentie)
+# =========================
+
+# ---- JetBrains via Toolbox (advies: Toolbox gebruiken, niet losse IDE-casks)
+# cask "jetbrains-toolbox"   # installeer RubyMine/IntelliJ vanuit Toolbox
+
+# ---- Docker runtimes
+# cask "orbstack"            # licht & snel alternatief voor Docker Desktop
+# cask "docker"              # Docker Desktop
+
+# ---- Image/Video/PDF toolchain
+# brew "ffmpeg"              # audio/video tooling
+# brew "imagemagick"         # image conversies
+# brew "poppler"             # pdf tooling (pdftotext etc.)
+# brew "vips"                # snelle image processing
+# brew "hdf5"                # data containers
+# brew "libheif"             # HEIF/HEIC support
+# brew "librsvg"             # SVG rendering
+# brew "liblqr"              # seam carving
+# brew "mono-libgdiplus"     # GDI+ compat layer
+# brew "libmatio"            # MATLAB MAT files
+
+# ---- ML / AI (zwaar; alleen aanzetten als je het nodig hebt)
+# brew "pytorch"
+# brew "openai-whisper"
+
+# ---- Overige lib/runtime varianten
+# brew "icu4c@76"            # alleen openen als een lib dit eist (liever niet geforceerd linken)
+# brew "openssl@1.1"         # EOL – historiek; NIET meer installeren
+
+# ---- Extra apps / tools (quality of life)
+# cask "rectangle"           # window snapping
+# cask "raycast"             # launcher
+# cask "postman"             # API client
+# cask "iterm2"              # alternatief voor Ghostty
+# cask "kitty"               # alternatief voor Ghostty
+# cask "spotify"
+# cask "notion"
