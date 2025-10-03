@@ -67,7 +67,15 @@ if [[ "$DRY_RUN" == "false" ]]; then
   run "$HOME/dev-setup/config/ssh-setup.sh"
 fi
 
-# 8) macOS defaults
+# 8) Dotfiles installatie
+if [[ "$DRY_RUN" == "false" ]]; then
+  log "Dotfiles installeren..."
+  run "$HOME/dev-setup/dotfiles/install.sh"
+else
+  log "Dotfiles: zou ~/.zshrc, hosts, git config installeren"
+fi
+
+# 9) macOS defaults
 if [[ "$DRY_RUN" == "false" ]]; then
   log "macOS instellingen..."
   run "bash $HOME/dev-setup/config/macos-defaults.sh"

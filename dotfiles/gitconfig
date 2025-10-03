@@ -1,0 +1,10 @@
+# This is Git's per-user configuration file.
+[user]
+	name = Jeffrey Wiltjer
+	email = jeffrey84@gmail.com
+# Please adapt and uncomment the following lines:
+#	name = Jeffrey Wiltjer
+#	email = jeffrey.wiltjer@topicus.nl
+[core]
+	excludesfile = ~/.gitignore
+	autocrlf = input

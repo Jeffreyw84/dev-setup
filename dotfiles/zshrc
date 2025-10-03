@@ -1,0 +1,203 @@
+# If you come from bash you might have to change your $PATH.
+# export PATH=$HOME/bin:$HOME/.local/bin:/usr/local/bin:$PATH
+
+# Path to your Oh My Zsh installation.
+export ZSH="$HOME/.oh-my-zsh"
+
+# Set name of the theme to load --- if set to "random", it will
+# load a random theme each time Oh My Zsh is loaded, in which case,
+# to know which specific one was loaded, run: echo $RANDOM_THEME
+# See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
+ZSH_THEME="robbyrussell"
+
+# Set list of themes to pick from when loading at random
+# Setting this variable when ZSH_THEME=random will cause zsh to load
+# a theme from this variable instead of looking in $ZSH/themes/
+# If set to an empty array, this variable will have no effect.
+# ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
+
+# Uncomment the following line to use case-sensitive completion.
+# CASE_SENSITIVE="true"
+
+# Uncomment the following line to use hyphen-insensitive completion.
+# Case-sensitive completion must be off. _ and - will be interchangeable.
+# HYPHEN_INSENSITIVE="true"
+
+# Uncomment one of the following lines to change the auto-update behavior
+# zstyle ':omz:update' mode disabled  # disable automatic updates
+# zstyle ':omz:update' mode auto      # update automatically without asking
+# zstyle ':omz:update' mode reminder  # just remind me to update when it's time
+
+# Uncomment the following line to change how often to auto-update (in days).
+# zstyle ':omz:update' frequency 13
+
+# Uncomment the following line if pasting URLs and other text is messed up.
+# DISABLE_MAGIC_FUNCTIONS="true"
+
+# Uncomment the following line to disable colors in ls.
+# DISABLE_LS_COLORS="true"
+
+# Uncomment the following line to disable auto-setting terminal title.
+# DISABLE_AUTO_TITLE="true"
+
+# Uncomment the following line to enable command auto-correction.
+# ENABLE_CORRECTION="true"
+
+# Uncomment the following line to display red dots whilst waiting for completion.
+# You can also set it to another string to have that shown instead of the default red dots.
+# e.g. COMPLETION_WAITING_DOTS="%F{yellow}waiting...%f"
+# Caution: this setting can cause issues with multiline prompts in zsh < 5.7.1 (see #5765)
+# COMPLETION_WAITING_DOTS="true"
+
+# Uncomment the following line if you want to disable marking untracked files
+# under VCS as dirty. This makes repository status check for large repositories
+# much, much faster.
+# DISABLE_UNTRACKED_FILES_DIRTY="true"
+
+# Uncomment the following line if you want to change the command execution time
+# stamp shown in the history command output.
+# You can set one of the optional three formats:
+# "mm/dd/yyyy"|"dd.mm.yyyy"|"yyyy-mm-dd"
+# or set a custom format using the strftime function format specifications,
+# see 'man strftime' for details.
+# HIST_STAMPS="mm/dd/yyyy"
+
+# Would you like to use another custom folder than $ZSH/custom?
+# ZSH_CUSTOM=/path/to/new-custom-folder
+
+# Which plugins would you like to load?
+# Standard plugins can be found in $ZSH/plugins/
+# Custom plugins may be added to $ZSH_CUSTOM/plugins/
+# Example format: plugins=(rails git textmate ruby lighthouse)
+# Add wisely, as too many plugins slow down shell startup.
+plugins=(git)
+
+source $ZSH/oh-my-zsh.sh
+
+# User configuration
+
+# export MANPATH="/usr/local/man:$MANPATH"
+
+# You may need to manually set your language environment
+# export LANG=en_US.UTF-8
+
+# Preferred editor for local and remote sessions
+# if [[ -n $SSH_CONNECTION ]]; then
+#   export EDITOR='vim'
+# else
+#   export EDITOR='mvim'
+# fi
+
+# Compilation flags
+# export ARCHFLAGS="-arch x86_64"
+
+# Set personal aliases, overriding those provided by Oh My Zsh libs,
+# plugins, and themes. Aliases can be placed here, though Oh My Zsh
+# users are encouraged to define aliases within a top-level file in
+# the $ZSH_CUSTOM folder, with .zsh extension. Examples:
+# - $ZSH_CUSTOM/aliases.zsh
+# - $ZSH_CUSTOM/macos.zsh
+# For a full list of active aliases, run `alias`.
+#
+# Example aliases
+# alias zshconfig="mate ~/.zshrc"
+# alias ohmyzsh="mate ~/.oh-my-zsh"
+
+# Update PATH
+export PATH="$PATH:~/.dotnet/tools:/opt/homebrew/opt/mysql@8.4/bin:/Users/jeffrey/bin"
+
+# Set compiler and linker flags for MySQL and zstd
+export LDFLAGS="-L/opt/homebrew/opt/mysql@8.4/lib -L/opt/homebrew/opt/zstd/lib"
+export CPPFLAGS="-I/opt/homebrew/opt/mysql@8.4/include -I/opt/homebrew/opt/zstd/include"	
+
+# Set pkg-config path
+export PKG_CONFIG_PATH="/opt/homebrew/opt/zstd/lib/pkgconfig"
+
+export NVM_DIR="$HOME/.nvm"
+  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
+
+
+eval "$(zoxide init --cmd cd zsh)"
+
+# Aliassen
+alias edit_credentials="EDITOR=vim rails credentials:edit"
+
+alias edithosts="sudo vim /etc/hosts"
+alias editzsh="vim ~/.zshrc"
+alias sshconfig="bat ~/.ssh/config"
+
+alias lint="git diff --name-only develop | xargs ls -1 2>/dev/null | grep '\.haml$' | xargs bundle exec haml-lint; git diff --name-only develop | xargs ls -1 2>/dev/null | grep '\.rb$' | xargs bundle exec rubocop; git diff --name-only develop | xargs ls -1 2>/dev/null | grep '\.scss$' | xargs bundle exec scss-lint"
+
+alias edit-keyboard="vim ~/.config/kanata/config.kbd"
+alias reload-keyboard='sudo launchctl bootout system /Library/LaunchDaemons/com.jeffrey.kanata.plist && sudo launchctl bootstrap system /Library/LaunchDaemons/com.jeffrey.kanata.plist'
+
+alias dev-dhh="~/dev-setup/bin/workspace --profile develop --product dhh"
+alias dev-wmk="~/dev-setup/bin/workspace --profile develop --product wmk"
+alias dev-msp="~/dev-setup/bin/workspace --profile develop --product msp"
+alias dev-mst="~/dev-setup/bin/workspace --profile develop --product mst"
+
+alias close-2="~/dev-setup/bin/ws-close --workspace 2"
+alias close-3="~/dev-setup/bin/ws-close --workspace 3"
+
+alias dhh-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product dhh --env test"
+alias wmk-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product wmk --env test"
+alias msp-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product msp --env test"
+alias mst-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product mst --env test"
+
+alias dhh-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product dhh --env acceptatie"
+alias wmk-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product wmk --env acceptatie"
+alias msp-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product msp --env acceptatie"
+alias mst-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product mst --env acceptatie"
+
+alias dhh-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product dhh --env productie"
+alias wmk-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product wmk --env productie"
+alias msp-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product msp --env productie"
+alias mst-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product mst --env productie"
+
+# Load Angular CLI autocompletion.
+source <(ng completion script)
+
+PATH="/Users/jeffrey/.nvm/versions/node/v16.20.2/bin:$PATH"
+
+#custom funcs
+function dev() {
+  # Check if the project directory is passed as an argument
+  if [ -z "$1" ]; then
+
+    echo "Please provide a project directory!"
+    return 1
+  fi
+
+  # Handle the case when '.' or '..' is passed
+  if [ "$1" = "." ] || [ "$1" = ".." ]; then
+    target_dir=$(pwd -P)  # Get the real path of the current or parent directory
+  else
+    target_dir=~/Documents/Projects/$1  # Use the provided directory inside ~/GITHUB
+  fi
+
+  # Expand the tilde (~) to the actual home path
+  target_dir=$(eval echo $target_dir)
+
+  # Check if the current directory is the target directory
+  if [ "$PWD" != "$target_dir" ]; then
+    # Change directory to the provided GitHub directory using 'cdi'
+    cdi $target_dir
+    
+    # Check if the directory change was successful
+    if [ $? -ne 0 ]; then
+      echo "Directory not found or 'cdi' failed!"
+      return 1
+    fi
+  fi
+
+  # Open RubyMine in the current directory
+  rubymine .
+
+  # Wait for RubyMine to open before proceeding
+  wait $!
+
+  # After RubyMine is opened, run Lazygit
+  lazygit
+}
+export PATH="$HOME/dev-setup/bin:$PATH"

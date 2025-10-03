@@ -1,0 +1,15 @@
+Host github.com
+  AddKeysToAgent yes
+  IdentityFile ~/.ssh/id_rsa
+
+Host mysql.test.skw
+Hostname 10.64.39.57
+User jeffrey.wiltjer
+
+Host mysql.nonprod.skw
+Hostname 10.64.41.151
+User jeffrey.wiltjer
+  
+Host mysql.prod.skw
+Hostname 10.64.42.182
+User jeffrey.wiltjer

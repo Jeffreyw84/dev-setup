@@ -45,6 +45,7 @@ Dit installeert:
 - ✅ **VS Code extensions**
 - ✅ **Development tools** (Git, databases, etc.)
 - ✅ **Terminal configuratie** (zsh, nvm, PATH)
+- ✅ **Dotfiles** (zshrc, gitconfig, hosts, SSH config)
 - ✅ **Git configuratie** (naam, email, aliases)
 - ✅ **SSH keys** + GitHub setup
 - ✅ **macOS instellingen** (Dock, Finder, Keyboard)
