@@ -78,6 +78,52 @@ DRY_RUN=false ./bootstrap/setup.sh
 
 ## 💡 Handige tips
 
+### Chrome Profiel Ondersteuning
+Je kunt specifieke Chrome profielen afdwingen voor verschillende workspaces:
+
+```yaml
+windows:
+  - id: web
+    app: chrome
+    url: "{{develop_url}}"
+    profile: "Profile 1"  # Gebruik specifiek Chrome profiel
+```
+
+**Chrome profiel namen vinden:**
+1. Open Chrome
+2. Ga naar `chrome://settings/manageProfile`
+3. De naam die je ziet is wat je gebruikt in de YAML (bijv. "Profile 1", "Work", "Personal")
+
+**Alternatieve methode - gebruik profiel directory namen:**
+```bash
+ls ~/Library/Application\ Support/Google/Chrome/ | grep Profile
+# Output: Profile 1, Profile 7, Profile 8, etc.
+```
+
+**Voorbeelden:**
+
+```yaml
+# Workspace met specifiek profiel
+windows:
+  - id: web
+    app: chrome
+    url: "{{develop_url}}"
+    profile: "Profile 7"  # Voor work-gerelateerd development
+
+# Workspace zonder profiel (gebruikt default)
+windows:
+  - id: web
+    app: chrome  
+    url: "{{develop_url}}"
+    # Geen profile - gebruikt default Chrome profiel
+```
+
+**Voordelen van profielen:**
+- Gescheiden cookies en sessies per project
+- Verschillende extensies per omgeving
+- Geen interferentie tussen development en productie accounts
+- Per profiel verschillende bookmarks en browsing geschiedenis
+
 ### RubyMine Development
 Het `ws-close` script is speciaal geoptimaliseerd voor RubyMine development:
 - Sluit automatisch gerelateerde Ruby/Rails processen af
@@ -86,9 +132,9 @@ Het `ws-close` script is speciaal geoptimaliseerd voor RubyMine development:
 
 ### Multiple Workspaces
 Je kunt veilig meerdere development workspaces hebben:
-- Workspace 1: Frontend project
-- Workspace 2: Backend project  
-- Workspace 3: DevOps/Scripts
+- Workspace 1: Frontend project (met Chrome profiel "Work")
+- Workspace 2: Backend project (met Chrome profiel "Development")
+- Workspace 3: DevOps/Scripts (met Chrome profiel "Admin")
 - etc.
 
 Elk workspace behoudt zijn eigen processen en vensters.
