@@ -80,6 +80,19 @@ for wid in "${WINDOW_IDS[@]}"; do
               fi
             done
           done
+          
+          # Extra cleanup: zoek naar fsevent_watch processen die mogelijk gerelateerd zijn
+          echo "Cleanup gerelateerde file watching processen..."
+          pkill -f "fsevent_watch.*dhh" 2>/dev/null || true
+          pkill -f "rb-fsevent.*dhh" 2>/dev/null || true
+          
+          # Wacht even en probeer nog resterende Ruby processen op te ruimen
+          sleep 1
+          REMAINING_RUBY=$(ps aux | grep -E "ruby.*dhh|fsevent_watch.*dhh" | grep -v grep | awk '{print $2}' || true)
+          for pid in $REMAINING_RUBY; do
+            echo "Cleanup remaining Ruby/fsevent proces $pid..."
+            kill -TERM "$pid" 2>/dev/null || true
+          done
         else
           echo "Geen RubyMine PID gevonden - skip Ruby proces cleanup"
         fi
