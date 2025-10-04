@@ -7,6 +7,7 @@ PROFILE=""
 CLEAN=false
 PRODUCT=""
 ENVIRONMENT=""
+QUIET=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -14,7 +15,8 @@ while [[ $# -gt 0 ]]; do
     -c|--clean) CLEAN=true; shift ;;
     --product) PRODUCT="$2"; shift 2 ;;
     --env) ENVIRONMENT="$2"; shift 2 ;;
-    *) echo "Usage: $0 --profile <name> [--clean] [--product <naam>] [--env <naam>]"; exit 1 ;;
+    -q|--quiet) QUIET=true; shift ;;
+    *) echo "Usage: $0 --profile <name> [--clean] [--product <naam>] [--env <naam>] [--quiet]"; exit 1 ;;
   esac
 done
 [[ -n "$PROFILE" ]] || { echo "Error: geen profile opgegeven"; exit 1; }
@@ -38,7 +40,9 @@ AERO_BIN="${AERO_BIN:-$(command -v aerospace || true)}"
 [[ -n "$YQ_BIN" && -n "$JQ_BIN" && -n "$AERO_BIN" ]] || { echo "Ontbrekende tools: yq/jq/aerospace"; exit 1; }
 aero() { "$AERO_BIN" "$@"; }
 
-echo "== workspace ($PROFILE) =="
+if [[ "$QUIET" != "true" ]]; then
+  echo "== workspace ($PROFILE) =="
+fi
 
 WS="$("$YQ_BIN" -r '.workspace // "2"' "$PROFILE_FILE")"
 
@@ -233,7 +237,9 @@ open_item() {
   local HELPER_SPEC="$HOME/dev-setup/bin/ws-open-$app"
   local HELPER_GEN="$HOME/dev-setup/bin/ws-open"
   
-  echo "Opening $app..." >&2
+  if [[ "${QUIET:-false}" != "true" ]]; then
+    echo "Opening $app..." >&2
+  fi
   
   if [[ -x "$HELPER_SPEC" ]]; then
     "$HELPER_SPEC" "${args[@]}"
@@ -257,7 +263,9 @@ retry_with_backoff() {
     fi
     
     if (( attempt < max_attempts )); then
-      echo "Attempt $attempt failed, retrying in ${delay}s..." >&2
+      if [[ "${QUIET:-false}" != "true" ]]; then
+        echo "Attempt $attempt failed, retrying in ${delay}s..." >&2
+      fi
       sleep "$delay"
       delay=$((delay * 2))  # verdubbel delay elke keer (zonder bc)
       if (( delay > 8 )); then delay=8; fi  # max 8 seconden
@@ -265,7 +273,9 @@ retry_with_backoff() {
     (( attempt++ ))
   done
   
-  echo "Command failed after $max_attempts attempts: $*" >&2
+  if [[ "${QUIET:-false}" != "true" ]]; then
+    echo "Command failed after $max_attempts attempts: $*" >&2
+  fi
   return 1
 }
 
@@ -303,7 +313,9 @@ get_wid_for_id() {
 # Workspace altijd schoon maken
 aero workspace "$WS" || true
 sleep 0.2
-echo "Sluiting bestaande vensters in workspace $WS..."
+if [[ "$QUIET" != "true" ]]; then
+  echo "Sluiting bestaande vensters in workspace $WS..."
+fi
 "$HOME/dev-setup/bin/ws-close" --workspace "$WS" 2>/dev/null || true
 sleep 0.5
 
@@ -334,10 +346,15 @@ for col_idx in $(seq 0 $((cols_count-1))); do
   [[ -n "$anchor_item" ]] || { echo "Onbekende window id in layout: $anchor_id"; exit 1; }
 
   app="$(echo "$anchor_item" | "$JQ_BIN" -r '.app')"
-  # bouw key=val args (excl. app/id)
-  read -r -a kvs <<<"$(echo "$anchor_item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\(.value|tostring)") | join(" ")')"
+  # bouw key=val args (excl. app/id) - gebruik quotes voor waarden met spaties
+  kvs_raw="$(echo "$anchor_item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\"\(.value|tostring)\"") | join(" ")')"
+  eval "kvs=($kvs_raw)"
 
-  wid="$(open_item "$app" "${kvs[@]}")" || { echo "Openen faalde: $app"; exit 1; }
+  if [[ "$QUIET" == "true" ]]; then
+    QUIET="$QUIET" wid="$(open_item "$app" "${kvs[@]}" 2>/dev/null)" || { echo "Openen faalde: $app"; exit 1; }
+  else
+    QUIET="$QUIET" wid="$(open_item "$app" "${kvs[@]}")" || { echo "Openen faalde: $app"; exit 1; }
+  fi
   
   # Wacht tot venster beschikbaar is
   if ! wait_for_window "$wid"; then
@@ -363,9 +380,10 @@ for col_idx in $(seq 0 $((cols_count-1))); do
       item="$(echo "$WINDOWS_JSON" | "$JQ_BIN" -c ".[] | select(.id==\"$w_id\")")"
       [[ -n "$item" ]] || { echo "Onbekende window id: $w_id"; exit 1; }
       wapp="$(echo "$item" | "$JQ_BIN" -r '.app')"
-      read -r -a wargs <<<"$(echo "$item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\(.value|tostring)") | join(" ")')"
+      wargs_raw="$(echo "$item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\"\(.value|tostring)\"") | join(" ")')"
+      eval "wargs=($wargs_raw)"
 
-      w_wid="$(open_item "$wapp" "${wargs[@]}")" || { echo "Openen faalde: $wapp"; exit 1; }
+      QUIET="$QUIET" w_wid="$(open_item "$wapp" "${wargs[@]}")" || { echo "Openen faalde: $wapp"; exit 1; }
       
       # Wacht tot venster beschikbaar is
       if ! wait_for_window "$w_wid"; then
@@ -440,8 +458,10 @@ if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" && -n "$RUBYMINE_WID" && -n "$VSCODE
 
   echo "Layout complete: Deterministic 2-column v_accordion setup" >&2
 else
-  echo "Skipping v_accordion layout (not a develop profile with 4 standard apps)" >&2
-  echo "Using default layout from profile configuration" >&2
+  if [[ "${QUIET:-false}" != "true" ]]; then
+    echo "Skipping v_accordion layout (not a develop profile with 4 standard apps)" >&2
+    echo "Using default layout from profile configuration" >&2
+  fi
   aero workspace "$WS" || true
   aero balance-sizes || true
 fi
@@ -460,4 +480,6 @@ if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" && -n "$RUBYMINE_WID" && -n "$VSCODE
   retry_with_backoff 3 aero focus --window-id "$RUBYMINE_WID" || true
 fi
 
-echo "== klaar =="
+if [[ "$QUIET" != "true" ]]; then
+  echo "== klaar =="
+fi
