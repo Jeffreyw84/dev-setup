@@ -11,6 +11,7 @@ windows:
   - id: web
     app: chrome
     url: "{{develop_url}}"
+    profile: "Profile 7"
 
   - id: gitui
     app: ghostty

@@ -1,0 +1,11 @@
+workspace: "B"
+layout:
+  columns:
+    - orientation: v_accordion
+      windows: [web]
+
+windows:
+  - id: web
+    app: chrome
+    url: "https://gmail.com"
+    profile: "Default"
