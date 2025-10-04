@@ -85,9 +85,15 @@ brew install --cask jetbrains-toolbox
 
 #### D) Keyboard mapping (Kanata)
 ```bash
-# Je Kanata config staat in:  
-# ~/config/kanata/
-# Kopieer configuratie van oude Mac
+# Kanata configuratie is automatisch geïnstalleerd via dotfiles
+# Setup LaunchDaemon om Kanata te starten:
+~/dev-setup/config/kanata-setup.sh
+```
+
+#### E) Oh My Zsh (als nog niet geïnstalleerd)
+```bash
+# Installeer Oh My Zsh als het niet automatisch werkt
+sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 ```
 
 ## ✅ Verificatie
