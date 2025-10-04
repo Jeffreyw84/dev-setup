@@ -60,7 +60,18 @@ for wid in "${WINDOW_IDS[@]}"; do
           pkill -f "rubymine" 2>/dev/null || true
         fi
         
-        # Sluit alleen Ruby processen die child processen zijn van deze RubyMine instantie
+        # Detecteer het project pad uit de RubyMine argumenten
+        PROJECT_PATH=""
+        if [[ -n "$RUBYMINE_PID" ]]; then
+          # Haal het project pad op uit de RubyMine command line
+          PROJECT_PATH=$(ps -p "$RUBYMINE_PID" -o args= 2>/dev/null | grep -o '/[^[:space:]]*$' || true)
+          if [[ -n "$PROJECT_PATH" && -d "$PROJECT_PATH" ]]; then
+            PROJECT_NAME=$(basename "$PROJECT_PATH")
+            echo "Gedetecteerd project: $PROJECT_NAME in $PROJECT_PATH"
+          fi
+        fi
+        
+        # Sluit Ruby processen die child processen zijn van deze RubyMine instantie
         if [[ -n "$RUBYMINE_PID" ]]; then
           echo "Zoeken naar Ruby processen gestart door RubyMine PID $RUBYMINE_PID..."
           # Zoek child processen recursief
@@ -80,21 +91,49 @@ for wid in "${WINDOW_IDS[@]}"; do
               fi
             done
           done
+        fi
           
-          # Extra cleanup: zoek naar fsevent_watch processen die mogelijk gerelateerd zijn
-          echo "Cleanup gerelateerde file watching processen..."
-          pkill -f "fsevent_watch.*dhh" 2>/dev/null || true
-          pkill -f "rb-fsevent.*dhh" 2>/dev/null || true
+        # UITGEBREIDE CLEANUP: Alle Rails/Ruby server processen voor dit project
+        echo "Uitgebreide cleanup van alle development server processen..."
+        
+        # Sluit alle puma/rails server processen (onafhankelijk van parent PID)
+        echo "Cleanup puma servers..."
+        pkill -f "puma.*3000" 2>/dev/null || true
+        pkill -f "rails server" 2>/dev/null || true
+        pkill -f "rails s" 2>/dev/null || true
+        
+        # Als we een project naam hebben, clean specifiek voor dat project
+        if [[ -n "$PROJECT_NAME" ]]; then
+          echo "Cleanup processen voor project $PROJECT_NAME..."
+          pkill -f "puma.*$PROJECT_NAME" 2>/dev/null || true
+          pkill -f "rails.*$PROJECT_NAME" 2>/dev/null || true
+          pkill -f "sidekiq.*$PROJECT_NAME" 2>/dev/null || true
+          pkill -f "fsevent_watch.*$PROJECT_NAME" 2>/dev/null || true
+          pkill -f "rb-fsevent.*$PROJECT_NAME" 2>/dev/null || true
           
-          # Wacht even en probeer nog resterende Ruby processen op te ruimen
-          sleep 1
-          REMAINING_RUBY=$(ps aux | grep -E "ruby.*dhh|fsevent_watch.*dhh" | grep -v grep | awk '{print $2}' || true)
-          for pid in $REMAINING_RUBY; do
-            echo "Cleanup remaining Ruby/fsevent proces $pid..."
-            kill -TERM "$pid" 2>/dev/null || true
+          # Ook Node.js development servers (webpack-dev-server, etc.)
+          echo "Cleanup Node.js development servers voor $PROJECT_NAME..."
+          pkill -f "webpack-dev-server.*$PROJECT_NAME" 2>/dev/null || true
+          pkill -f "node.*$PROJECT_NAME.*webpack" 2>/dev/null || true
+          pkill -f "vite.*$PROJECT_NAME" 2>/dev/null || true
+        fi
+        
+        # Extra cleanup: zoek naar fsevent_watch processen
+        echo "Cleanup file watching processen..."
+        pkill -f "fsevent_watch" 2>/dev/null || true
+        pkill -f "rb-fsevent" 2>/dev/null || true
+        
+        # Wacht even en probeer nog resterende Ruby processen op te ruimen
+        sleep 1
+        
+        # Check voor overgebleven Ruby server processen
+        REMAINING_SERVERS=$(ps aux | grep -E "(puma|rails server|sidekiq)" | grep -v grep | awk '{print $2}' || true)
+        if [[ -n "$REMAINING_SERVERS" ]]; then
+          echo "Cleanup overgebleven server processen..."
+          for pid in $REMAINING_SERVERS; do
+            echo "Force kill server proces $pid..."
+            kill -KILL "$pid" 2>/dev/null || true
           done
-        else
-          echo "Geen RubyMine PID gevonden - skip Ruby proces cleanup"
         fi
         ;;
       com.apple.Terminal|com.googlecode.iterm2)
