@@ -2,7 +2,7 @@
 # ws-open — generieke opener (bash 3.2 compatible) - robuuste versie
 set -euo pipefail
 
-APP=""; URL="about:blank"; DIR="$HOME"; CMD=""; PROJECT=""
+APP=""; URL="about:blank"; DIR="$HOME"; CMD=""; PROJECT=""; PROFILE=""
 
 for kv in "$@"; do
   case "$kv" in
@@ -11,11 +11,17 @@ for kv in "$@"; do
     dir=*)     DIR="${kv#*=}" ;;
     cmd=*)     CMD="${kv#*=}" ;;
     project=*) PROJECT="${kv#*=}" ;;
+    profile=*) PROFILE="${kv#*=}" 
+               # Verwijder quotes als ze aanwezig zijn
+               PROFILE="${PROFILE#\"}"
+               PROFILE="${PROFILE%\"}" ;;
     *) ;; # negeer onbekende keys
   esac
 done
 
 [[ -n "$APP" ]] || { echo "app= is verplicht" >&2; exit 1; }
+
+
 
 AERO="${AERO_BIN:-$(command -v aerospace || true)}"
 [[ -x "$AERO" ]] || AERO="/opt/homebrew/bin/aerospace"
@@ -53,7 +59,11 @@ case "$APP" in
   chrome)
     BID="com.google.Chrome"
     # Chrome: forceer altijd een nieuw venster, ook als Chrome al draait
-    open_cmd=(open -a "Google Chrome" --args --new-window "$URL")
+    if [[ -n "$PROFILE" ]]; then
+      open_cmd=(open -a "Google Chrome" --args --new-window --profile-directory="$PROFILE" "$URL")
+    else
+      open_cmd=(open -a "Google Chrome" --args --new-window "$URL")
+    fi
     ;;
   ghostty)
     BID="com.mitchellh.ghostty"
@@ -82,38 +92,65 @@ case "$APP" in
 esac
 
 before="$(list_ids | tr '\n' ' ')"
-echo "Opening $APP..." >&2
+if [[ "${QUIET:-false}" != "true" ]]; then
+  echo "Opening $APP..." >&2
+fi
 
 # Speciale behandeling voor Chrome om nieuw venster te forceren
 if [[ "$APP" == "chrome" ]]; then
-  # Gebruik AppleScript om een nieuw Chrome venster te forceren
-  osascript <<EOF >/dev/null 2>&1 || { echo "Failed to execute AppleScript" >&2; exit 1; }
+  if [[ -n "$PROFILE" ]]; then
+    # Voor specifieke profielen: gebruik directe Chrome executable met profiel
+    if [[ "${QUIET:-false}" != "true" ]]; then
+      echo "Opening Chrome with profile: $PROFILE" >&2
+    fi
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+      --new-window \
+      --profile-directory="$PROFILE" \
+      "$URL" >/dev/null 2>&1 &
+    # Geef Chrome tijd om te starten
+    sleep 2
+  else
+    # Gebruik AppleScript om een nieuw Chrome venster te forceren (alleen voor default profiel)
+    osascript <<EOF >/dev/null 2>&1 || { echo "Failed to execute AppleScript" >&2; exit 1; }
 tell application "Google Chrome"
     activate
     make new window
     set URL of active tab of front window to "$URL"
 end tell
 EOF
+  fi
 elif [[ "$APP" == "rubymine" ]]; then
   # Voor RubyMine: gebruik command line tool om direct project te openen (vermijdt welcome screen)
   "${open_cmd[@]}" >/dev/null 2>&1 &
+  # Geef RubyMine extra tijd om te laden
+  sleep 2
 else
   # Voor andere apps: normale opening
   "${open_cmd[@]}" >/dev/null 2>&1 || { echo "Failed to execute open command" >&2; exit 1; }
 fi
 
 # Wacht tot het nieuwe venster verschijnt (simpelere benadering)
-echo "Waiting for new window to appear..." >&2
-tries=80  # 20 seconden (80 * 0.25s)
+if [[ "${QUIET:-false}" != "true" ]]; then
+  echo "Waiting for new window to appear..." >&2
+fi
+# Meer tijd voor zware apps zoals RubyMine
+if [[ "$APP" == "rubymine" ]]; then
+  tries=160  # 40 seconden voor RubyMine
+else
+  tries=80   # 20 seconden voor andere apps
+fi
 while (( tries-- > 0 )); do
-  after="$(list_ids | tr '\n' ' ')"
-  for id in $after; do
-    [[ " $before " == *" $id "* ]] || { 
-      echo "New window detected: $id" >&2
-      echo "$id"
+  after="$(list_ids)"
+  # Zoek naar nieuwe window IDs (alleen nummers)
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^[0-9]+$ ]] && [[ "$before" != *"$line"* ]]; then
+      if [[ "${QUIET:-false}" != "true" ]]; then
+        echo "New window detected: $line" >&2
+      fi
+      echo "$line"
       exit 0
-    }
-  done
+    fi
+  done <<< "$after"
   sleep 0.25
 done
 

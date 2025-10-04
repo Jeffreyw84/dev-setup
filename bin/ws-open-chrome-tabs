@@ -3,12 +3,17 @@
 set -euo pipefail
 
 urls=()
+PROFILE=""
 
 # Parse alle URL argumenten
 while [[ $# -gt 0 ]]; do
   case "$1" in
     url=*|url1=*|url2=*|url3=*)
       urls+=("${1#*=}")
+      shift
+      ;;
+    profile=*)
+      PROFILE="${1#*=}"
       shift
       ;;
     *)
@@ -26,11 +31,19 @@ before_count=$(aerospace list-windows --all | grep -c "Google Chrome" || echo "0
 for url in "${urls[@]}"; do
   if [[ "$url" == "${urls[0]}" ]]; then
     # Eerste URL: nieuwe Chrome instantie
-    open -n -a "Google Chrome" "$url"
+    if [[ -n "$PROFILE" ]]; then
+      open -n -a "Google Chrome" --args --profile-directory="$PROFILE" "$url"
+    else
+      open -n -a "Google Chrome" "$url"
+    fi
     sleep 0.5
   else
     # Extra URLs: normale open (gaat naar bestaand venster)
-    open -a "Google Chrome" "$url"
+    if [[ -n "$PROFILE" ]]; then
+      open -a "Google Chrome" --args --profile-directory="$PROFILE" "$url"
+    else
+      open -a "Google Chrome" "$url"
+    fi
     sleep 0.2
   fi
 done
