@@ -81,6 +81,22 @@ if [[ "$DRY_RUN" == "false" ]]; then
   run "bash $HOME/dev-setup/config/macos-defaults.sh"
 fi
 
+# 10) Kanata LaunchDaemon setup (optioneel)
+if [[ "$DRY_RUN" == "false" ]] && [[ -f "$HOME/.config/kanata/config.kbd" ]]; then
+  log "Kanata LaunchDaemon setup..."
+  run "$HOME/dev-setup/config/kanata-setup.sh"
+else
+  log "Kanata: zou LaunchDaemon installeren (als config aanwezig)"
+fi
+
+# 11) Oh My Zsh check
+if [[ ! -d "$HOME/.oh-my-zsh" ]] && [[ "$DRY_RUN" == "false" ]]; then
+  log "Oh My Zsh installeren..."
+  run 'sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended'
+else
+  log "Oh My Zsh: al geïnstalleerd of zou installeren"
+fi
+
 log "== klaar (dry-run=$DRY_RUN) =="
 if [[ "$DRY_RUN" == "true" ]]; then
   log ""
