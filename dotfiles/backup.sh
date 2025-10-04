@@ -46,5 +46,36 @@ if [[ -f "$VSCODE_SETTINGS" ]]; then
     log "Backed up: VS Code settings"
 fi
 
+# Backup AeroSpace configuratie
+if [[ -f "$HOME/.config/aerospace/aerospace.toml" ]]; then
+    mkdir -p "$DOTFILES_DIR/config/aerospace"
+    cp "$HOME/.config/aerospace/aerospace.toml" "$DOTFILES_DIR/config/aerospace/"
+    log "Backed up: AeroSpace config"
+fi
+
+# Backup Kanata configuratie
+if [[ -d "$HOME/.config/kanata" ]]; then
+    mkdir -p "$DOTFILES_DIR/config/kanata"
+    cp -r "$HOME/.config/kanata/"* "$DOTFILES_DIR/config/kanata/" 2>/dev/null || true
+    log "Backed up: Kanata keyboard config"
+fi
+
+# Backup vim configuraties
+if [[ -f "$HOME/.vimrc" ]]; then
+    cp "$HOME/.vimrc" "$DOTFILES_DIR/vimrc"
+    log "Backed up: .vimrc"
+fi
+
+if [[ -f "$HOME/.ideavimrc" ]]; then
+    cp "$HOME/.ideavimrc" "$DOTFILES_DIR/ideavimrc"
+    log "Backed up: .ideavimrc (JetBrains vim)"
+fi
+
+# Backup zprofile (als aanwezig)
+if [[ -f "$HOME/.zprofile" ]]; then
+    cp "$HOME/.zprofile" "$DOTFILES_DIR/zprofile"
+    log "Backed up: .zprofile"
+fi
+
 log "=== Backup voltooid ==="
 log "Vergeet niet te committen: git add dotfiles/ && git commit -m 'Update dotfiles'"

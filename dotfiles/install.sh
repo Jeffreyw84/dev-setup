@@ -83,5 +83,53 @@ else
     log "Geen ssh configuratie gevonden"
 fi
 
+# AeroSpace configuratie
+log "=== aerospace configuratie ==="
+if [[ -f "$DOTFILES_DIR/config/aerospace/aerospace.toml" ]]; then
+    mkdir -p "$HOME/.config/aerospace"
+    link_dotfile "$DOTFILES_DIR/config/aerospace/aerospace.toml" "$HOME/.config/aerospace/aerospace.toml"
+else
+    log "Geen AeroSpace configuratie gevonden"
+fi
+
+# Kanata configuratie
+log "=== kanata keyboard configuratie ==="
+if [[ -d "$DOTFILES_DIR/config/kanata" ]]; then
+    mkdir -p "$HOME/.config/kanata"
+    # Kopieer alle kanata bestanden
+    for file in "$DOTFILES_DIR/config/kanata/"*; do
+        if [[ -f "$file" ]]; then
+            filename=$(basename "$file")
+            link_dotfile "$file" "$HOME/.config/kanata/$filename"
+        fi
+    done
+    log "Kanata configuratie geïnstalleerd"
+else
+    log "Geen Kanata configuratie gevonden"
+fi
+
+# Vim configuraties
+log "=== vim configuraties ==="
+if [[ -f "$DOTFILES_DIR/vimrc" ]]; then
+    link_dotfile "$DOTFILES_DIR/vimrc" "$HOME/.vimrc"
+fi
+
+if [[ -f "$DOTFILES_DIR/ideavimrc" ]]; then
+    link_dotfile "$DOTFILES_DIR/ideavimrc" "$HOME/.ideavimrc"
+fi
+
+# zprofile
+if [[ -f "$DOTFILES_DIR/zprofile" ]]; then
+    link_dotfile "$DOTFILES_DIR/zprofile" "$HOME/.zprofile"
+fi
+
+# VS Code settings
+log "=== vs code configuratie ==="
+if [[ -f "$DOTFILES_DIR/vscode/settings.json" ]]; then
+    mkdir -p "$HOME/Library/Application Support/Code/User"
+    link_dotfile "$DOTFILES_DIR/vscode/settings.json" "$HOME/Library/Application Support/Code/User/settings.json"
+    log "VS Code settings geïnstalleerd"
+fi
+
 log "=== dotfiles installatie voltooid ==="
 log "Herstart terminal of run: source ~/.zshrc"

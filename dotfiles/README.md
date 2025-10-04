@@ -5,10 +5,15 @@ Deze directory bevat al je persoonlijke configuratiebestanden (dotfiles) die aut
 ## 📋 Wat wordt beheerd
 
 - **`zshrc`** - zsh shell configuratie (Oh My Zsh, aliases, PATH, etc.)
+- **`zprofile`** - zsh profile configuratie
 - **`gitconfig`** - Git globale instellingen en aliases
 - **`hosts-custom`** - Custom hosts entries (development domains)
 - **`ssh/config`** - SSH client configuratie (geen keys!)
 - **`vscode/settings.json`** - VS Code instellingen
+- **`vimrc`** - Vim editor configuratie
+- **`ideavimrc`** - JetBrains vim plugin configuratie
+- **`config/aerospace/aerospace.toml`** - AeroSpace window manager configuratie
+- **`config/kanata/config.kbd`** - Kanata keyboard remapping configuratie
 
 ## 🔄 Gebruik
 
