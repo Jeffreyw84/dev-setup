@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# chrome-prive - snelle shortcut voor privé Chrome workspace
+set -euo pipefail
+
+cd "$(dirname "$0")"
+exec ./workspace --profile workspace-b --quiet --clean "$@"
