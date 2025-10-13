@@ -12,6 +12,7 @@ windows:
   - id: github
     app: chrome
     url: https://github.com/topicusonderwijs/{{product}}
+    profile: "Profile 7"
     omgeving: {{env}}
     type: repository
 

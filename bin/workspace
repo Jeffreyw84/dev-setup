@@ -200,7 +200,7 @@ replace_placeholders() {
   input="${input//\{\{JENKINS_PRODUCT\}\}/$jenkins_product}"
   input="${input//\{\{JENKINS_BRANCH\}\}/$jenkins_branch}"
   input="${input//\{\{JENKINS_ENV\}\}/$jenkins_env}"
-  input="${input//\{\{ARGO_ENV\}\}/$argo_app}"
+  input="${input//\{\{ARGO_ENV\}\}/$argo_env}"
   input="${input//\{\{ARGO_APP\}\}/$argo_app}"
   
   # Vervang product placeholder met de juiste GitHub repository naam
