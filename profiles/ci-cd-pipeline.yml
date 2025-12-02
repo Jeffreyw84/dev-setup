@@ -18,7 +18,7 @@ windows:
 
   - id: jenkins
     app: chrome
-    url: https://jenkins2.topicusonderwijs.nl/job/schoolkwaliteit/job/{{JENKINS_PRODUCT}}/job/{{JENKINS_BRANCH}}/job/{{JENKINS_ENV}}/
+    url: https://jenkins2.topicusonderwijs.nl/job/schoolkwaliteit/job/{{JENKINS_PRODUCT}}/job/{{JENKINS_BRANCH}}/job/{{JENKINS_ENV}}/workflow-stage/
     omgeving: {{env}}
     type: build
 
