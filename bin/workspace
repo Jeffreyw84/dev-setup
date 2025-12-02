@@ -320,6 +320,10 @@ if [[ "$QUIET" != "true" ]]; then
   echo "Sluiting bestaande vensters in workspace $WS..."
 fi
 "$HOME/dev-setup/bin/ws-close" --workspace "$WS" 2>/dev/null || true
+
+# Switch terug naar de juiste workspace (ws-close kan workspace veranderen)
+aero workspace "$WS" || true
+
 aero flatten-workspace-tree || true
 aero layout tiles || true
 
