@@ -310,17 +310,48 @@ get_wid_for_id() {
 
 # Workspace actief en baseline schoon
 
-# Workspace altijd schoon maken
-aero workspace "$WS" || true
-sleep 0.2
+# EERST naar de doelworkspace switchen en zorgen dat we daar zijn
+if [[ "$QUIET" != "true" ]]; then
+  echo "Switchen naar workspace $WS..."
+fi
+
+# Agressievere workspace switching - probeer meerdere keren
+for attempt in {1..5}; do
+  retry_with_backoff 3 aero workspace "$WS" || true
+  sleep 0.5
+  
+  # Verificeer dat we in de juiste workspace zijn
+  CURRENT_WS=$(aero list-workspaces --focused | head -1 | awk '{print $1}' || echo "unknown")
+  if [[ "$CURRENT_WS" == "$WS" ]]; then
+    if [[ "$QUIET" != "true" && "$attempt" -gt 1 ]]; then
+      echo "Successfully switched to workspace $WS after $attempt attempts"
+    fi
+    break
+  fi
+  
+  if [[ "$QUIET" != "true" ]]; then
+    echo "Attempt $attempt: Expected workspace $WS but currently in $CURRENT_WS, retrying..."
+  fi
+  
+  if [[ "$attempt" -eq 5 ]]; then
+    echo "Warning: Could not reliably switch to workspace $WS after 5 attempts" >&2
+  fi
+done
+
+# Nu workspace schoon maken
 if [[ "$QUIET" != "true" ]]; then
   echo "Sluiting bestaande vensters in workspace $WS..."
 fi
 "$HOME/dev-setup/bin/ws-close" --workspace "$WS" 2>/dev/null || true
 sleep 0.5
 
+# Baseline layout instellen VOORDAT we vensters openen
 aero flatten-workspace-tree || true
 aero layout tiles || true
+sleep 0.5
+
+# Extra verificatie: zorg ervoor dat we nog steeds in de juiste workspace zijn
+retry_with_backoff 3 aero workspace "$WS" || true
 
 # Verzamel alle window IDs
 CHROME_WID=""
@@ -350,6 +381,32 @@ for col_idx in $(seq 0 $((cols_count-1))); do
   kvs_raw="$(echo "$anchor_item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\"\(.value|tostring)\"") | join(" ")')"
   eval "kvs=($kvs_raw)"
 
+  # KRITIEKE VERIFICATIE: Zorg dat we echt in de juiste workspace zijn voordat we apps openen
+  for ws_attempt in {1..10}; do
+    retry_with_backoff 3 aero workspace "$WS" || true
+    sleep 0.5
+    
+    # Verificeer dat we echt in de juiste workspace zitten
+    CURRENT_WS=$(aero list-workspaces --focused | head -1 | awk '{print $1}' || echo "unknown")
+    if [[ "$CURRENT_WS" == "$WS" ]]; then
+      if [[ "$QUIET" != "true" && "$ws_attempt" -gt 1 ]]; then
+        echo "Workspace verification successful after $ws_attempt attempts"
+      fi
+      # Extra wachttijd om er zeker van te zijn dat macOS de workspace change heeft geregistreerd
+      sleep 1
+      break
+    fi
+    
+    if [[ "$QUIET" != "true" ]]; then
+      echo "Workspace verification attempt $ws_attempt: Expected $WS, got $CURRENT_WS, retrying..."
+    fi
+    
+    if [[ "$ws_attempt" -eq 10 ]]; then
+      echo "ERROR: Could not verify workspace $WS after 10 attempts, currently in $CURRENT_WS" >&2
+      exit 1
+    fi
+  done
+  
   if [[ "$QUIET" == "true" ]]; then
     QUIET="$QUIET" wid="$(open_item "$app" "${kvs[@]}" 2>/dev/null)" || { echo "Openen faalde: $app"; exit 1; }
   else
@@ -371,7 +428,18 @@ for col_idx in $(seq 0 $((cols_count-1))); do
     code) VSCODE_WID="$wid" ;;
   esac
   
-  retry_with_backoff 3 aero move-node-to-workspace --window-id "$wid" "$WS" || true
+  # Verificeer dat we nog steeds in de juiste workspace zijn
+  retry_with_backoff 3 aero workspace "$WS" || true
+  sleep 0.1
+  
+  # Verplaats venster naar de juiste workspace (als het niet al daar is)
+  WINDOW_WS=$(aero list-windows --all | grep "^$wid " | awk '{print $NF}' || echo "unknown")
+  if [[ "$WINDOW_WS" != "$WS" ]]; then
+    if [[ "$QUIET" != "true" ]]; then
+      echo "Moving window $wid from workspace $WINDOW_WS to $WS..."
+    fi
+    retry_with_backoff 3 aero move-node-to-workspace --window-id "$wid" "$WS" || true
+  fi
   sleep 0.2
 
   # overige windows in kolom
@@ -383,6 +451,32 @@ for col_idx in $(seq 0 $((cols_count-1))); do
       wargs_raw="$(echo "$item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\"\(.value|tostring)\"") | join(" ")')"
       eval "wargs=($wargs_raw)"
 
+      # KRITIEKE VERIFICATIE: Zorg dat we echt in de juiste workspace zijn voordat we apps openen
+      for ws_attempt in {1..10}; do
+        retry_with_backoff 3 aero workspace "$WS" || true
+        sleep 0.5
+        
+        # Verificeer dat we echt in de juiste workspace zitten
+        CURRENT_WS=$(aero list-workspaces --focused | head -1 | awk '{print $1}' || echo "unknown")
+        if [[ "$CURRENT_WS" == "$WS" ]]; then
+          if [[ "$QUIET" != "true" && "$ws_attempt" -gt 1 ]]; then
+            echo "Workspace verification successful after $ws_attempt attempts"
+          fi
+          # Extra wachttijd om er zeker van te zijn dat macOS de workspace change heeft geregistreerd
+          sleep 1
+          break
+        fi
+        
+        if [[ "$QUIET" != "true" ]]; then
+          echo "Workspace verification attempt $ws_attempt: Expected $WS, got $CURRENT_WS, retrying..."
+        fi
+        
+        if [[ "$ws_attempt" -eq 10 ]]; then
+          echo "ERROR: Could not verify workspace $WS after 10 attempts, currently in $CURRENT_WS" >&2
+          exit 1
+        fi
+      done
+      
       QUIET="$QUIET" w_wid="$(open_item "$wapp" "${wargs[@]}")" || { echo "Openen faalde: $wapp"; exit 1; }
       
       # Wacht tot venster beschikbaar is
@@ -400,10 +494,24 @@ for col_idx in $(seq 0 $((cols_count-1))); do
         code) VSCODE_WID="$w_wid" ;;
       esac
       
-  retry_with_backoff 3 aero move-node-to-workspace --window-id "$w_wid" "$WS" || true
-  echo "[DEBUG] Na move-node-to-workspace ($w_id):"
-  /opt/homebrew/bin/aerospace list-windows --workspace "$WS"
-  sleep 0.2
+      # Verificeer dat we nog steeds in de juiste workspace zijn
+      retry_with_backoff 3 aero workspace "$WS" || true
+      sleep 0.1
+      
+      # Verplaats venster naar de juiste workspace (als het niet al daar is)
+      W_WINDOW_WS=$(aero list-windows --all | grep "^$w_wid " | awk '{print $NF}' || echo "unknown")
+      if [[ "$W_WINDOW_WS" != "$WS" ]]; then
+        if [[ "$QUIET" != "true" ]]; then
+          echo "Moving window $w_wid from workspace $W_WINDOW_WS to $WS..."
+        fi
+        retry_with_backoff 3 aero move-node-to-workspace --window-id "$w_wid" "$WS" || true
+      fi
+      
+      if [[ "$QUIET" != "true" ]]; then
+        echo "[DEBUG] Na move-node-to-workspace ($w_id):"
+        /opt/homebrew/bin/aerospace list-windows --workspace "$WS"
+      fi
+      sleep 0.2
     done
   fi
 done
