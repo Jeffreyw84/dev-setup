@@ -4,8 +4,8 @@ layout:
   columns:
     - orientation: v_accordion
       windows: [web, gitui]
-    - orientation: v_accordion
-      windows: [rubymine] # , code (temporarily disabled)
+    - orientation: tiles
+      windows: [rubymine]
 
 windows:
   - id: web
