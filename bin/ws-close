@@ -48,8 +48,20 @@ for wid in "${WINDOW_IDS[@]}"; do
         ;;
       com.jetbrains.rubymine)
         echo "RubyMine detected..."
-        # Haal de PID van deze RubyMine instantie op
+        
+        # Haal de PID en project info op VOORDAT we RubyMine sluiten
         RUBYMINE_PID=$(ps aux | grep -E "rubymine|RubyMine" | grep -v grep | awk '{print $2}' | head -1)
+        PROJECT_PATH=""
+        PROJECT_NAME=""
+        
+        if [[ -n "$RUBYMINE_PID" ]]; then
+          # Haal het project pad op uit de RubyMine command line
+          PROJECT_PATH=$(ps -p "$RUBYMINE_PID" -o args= 2>/dev/null | grep -o '/[^[:space:]]*$' || true)
+          if [[ -n "$PROJECT_PATH" && -d "$PROJECT_PATH" ]]; then
+            PROJECT_NAME=$(basename "$PROJECT_PATH")
+            echo "Gedetecteerd project: $PROJECT_NAME in $PROJECT_PATH"
+          fi
+        fi
         
         # Voor RubyMine: sluit altijd de hele app om welcome screens te voorkomen
         echo "RubyMine gedetecteerd - sluiting hele app om welcome screens te voorkomen..."
@@ -58,17 +70,6 @@ for wid in "${WINDOW_IDS[@]}"; do
         # Force kill als het niet werkt
         if aero list-windows --workspace "$WORKSPACE" | grep -q "^$wid "; then
           pkill -f "rubymine" 2>/dev/null || true
-        fi
-        
-        # Detecteer het project pad uit de RubyMine argumenten
-        PROJECT_PATH=""
-        if [[ -n "$RUBYMINE_PID" ]]; then
-          # Haal het project pad op uit de RubyMine command line
-          PROJECT_PATH=$(ps -p "$RUBYMINE_PID" -o args= 2>/dev/null | grep -o '/[^[:space:]]*$' || true)
-          if [[ -n "$PROJECT_PATH" && -d "$PROJECT_PATH" ]]; then
-            PROJECT_NAME=$(basename "$PROJECT_PATH")
-            echo "Gedetecteerd project: $PROJECT_NAME in $PROJECT_PATH"
-          fi
         fi
         
         # Sluit Ruby processen die child processen zijn van deze RubyMine instantie
@@ -102,11 +103,17 @@ for wid in "${WINDOW_IDS[@]}"; do
         pkill -f "rails server" 2>/dev/null || true
         pkill -f "rails s" 2>/dev/null || true
         
+        # Spring servers (Rails application preloader)
+        echo "Cleanup Spring servers..."
+        pkill -f "spring server" 2>/dev/null || true
+        pkill -f "spring app" 2>/dev/null || true
+        
         # Als we een project naam hebben, clean specifiek voor dat project
         if [[ -n "$PROJECT_NAME" ]]; then
           echo "Cleanup processen voor project $PROJECT_NAME..."
           pkill -f "puma.*$PROJECT_NAME" 2>/dev/null || true
           pkill -f "rails.*$PROJECT_NAME" 2>/dev/null || true
+          pkill -f "spring.*$PROJECT_NAME" 2>/dev/null || true
           pkill -f "sidekiq.*$PROJECT_NAME" 2>/dev/null || true
           pkill -f "fsevent_watch.*$PROJECT_NAME" 2>/dev/null || true
           pkill -f "rb-fsevent.*$PROJECT_NAME" 2>/dev/null || true
