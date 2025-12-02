@@ -357,7 +357,6 @@ retry_with_backoff 3 aero workspace "$WS" || true
 CHROME_WID=""
 GHOSTTY_WID=""
 RUBYMINE_WID=""
-VSCODE_WID=""
 
 # Open per kolom: anchor eerst, daarna rest. Dwing kolompositie + v_accordion indien gevraagd.
 cols_count="$(echo "$LAYOUT_JSON" | "$JQ_BIN" 'length')"
@@ -425,7 +424,6 @@ for col_idx in $(seq 0 $((cols_count-1))); do
     web) CHROME_WID="$wid" ;;
     gitui) GHOSTTY_WID="$wid" ;;
     rubymine) RUBYMINE_WID="$wid" ;;
-    code) VSCODE_WID="$wid" ;;
   esac
   
   # Verificeer dat we nog steeds in de juiste workspace zijn
@@ -491,7 +489,6 @@ for col_idx in $(seq 0 $((cols_count-1))); do
         web) CHROME_WID="$w_wid" ;;
         gitui) GHOSTTY_WID="$w_wid" ;;
         rubymine) RUBYMINE_WID="$w_wid" ;;
-        code) VSCODE_WID="$w_wid" ;;
       esac
       
       # Verificeer dat we nog steeds in de juiste workspace zijn
@@ -526,66 +523,34 @@ if [[ -n "$first_window_id" ]]; then
   retry_with_backoff 3 aero layout h_tiles --window-id "$first_window_id" || true
 fi
 
-# Check of dit een develop profiel is (heeft Chrome, Ghostty, RubyMine, VSCode)
-if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" && -n "$RUBYMINE_WID" && -n "$VSCODE_WID" ]]; then
-  # Deterministische aanpak voor develop profiel: force baseline en bouw deterministisch
-  echo "Creating deterministic v_accordion layout for develop profile..." >&2
-
-  # Wacht even om te zorgen dat alle vensters klaar zijn
-  sleep 1
-
-  echo "Chrome WID: $CHROME_WID (browser links)" >&2
-  echo "Ghostty WID: $GHOSTTY_WID (terminal links)" >&2  
-  echo "RubyMine WID: $RUBYMINE_WID (IDE rechts)" >&2
-  echo "VSCode WID: $VSCODE_WID (editor rechts)" >&2
-
-  # --- force baseline: tiles, dan 2 kolommen zonder joins ---
-  echo "Setting baseline workspace state..." >&2
-  aero workspace "$WS" || true
-  # trek de boom vlak om oude containers te vermijden
-  aero flatten-workspace-tree || true
-
-  # bouw twee kolommen deterministisch (zonder joins)
-  echo "Building two columns deterministically..." >&2
-  retry_with_backoff 5 aero move left  --window-id "$CHROME_WID"  || true   # Chrome links verzekeren
-  retry_with_backoff 5 aero move left  --window-id "$GHOSTTY_WID" || true   # Ghostty links verzekeren
-  retry_with_backoff 5 aero move right --window-id "$RUBYMINE_WID" || true  # RubyMine naar rechts
-  retry_with_backoff 5 aero move right --window-id "$VSCODE_WID"  || true  # VSCode naar rechts
-
-  echo "Joining windows within columns..." >&2
-  retry_with_backoff 5 aero join-with left --window-id "$VSCODE_WID" || true
-  retry_with_backoff 5 aero join-with left --window-id "$GHOSTTY_WID" || true
-
-  echo "Setting v_accordion layouts..." >&2
-  retry_with_backoff 5 aero layout v_accordion --window-id "$CHROME_WID"   || true   # linkerkolom
-  retry_with_backoff 5 aero layout v_accordion --window-id "$VSCODE_WID" || true   # rechterkolom
-
-  echo "Final adjustments..." >&2
-  retry_with_backoff 5 aero balance-sizes || true
-  retry_with_backoff 5 aero focus --window-id "$CHROME_WID" || true
-
-  echo "Layout complete: Deterministic 2-column v_accordion setup" >&2
-else
+# Layout afwerking voor develop profiel (Chrome + Ghostty moeten gejoined worden)
+if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" ]]; then
   if [[ "${QUIET:-false}" != "true" ]]; then
-    echo "Skipping v_accordion layout (not a develop profile with 4 standard apps)" >&2
-    echo "Using default layout from profile configuration" >&2
+    echo "Setting up v_accordion layout..." >&2
   fi
+  
+  aero workspace "$WS" || true
+  
+  # Join Ghostty met Chrome (beide in linker kolom)
+  aero join-with left --window-id "$GHOSTTY_WID" || true
+  
+  # Zet v_accordion layout op de linker kolom
+  aero layout v_accordion --window-id "$CHROME_WID" || true
+  
+  # Balance en focus
+  aero balance-sizes || true
+  
+  if [[ -n "$RUBYMINE_WID" ]]; then
+    aero focus --window-id "$RUBYMINE_WID" || true
+  fi
+else
+  # Geen specifieke layout, gewoon balancen
   aero workspace "$WS" || true
   aero balance-sizes || true
-fi
-
-# Balance de kolommen voor betere verdeling
-echo "Balancing columns..." >&2
-retry_with_backoff 3 aero balance-sizes || true
-sleep 0.2
-
-# Aerospace focus naar workspace
-retry_with_backoff 3 aero workspace "$WS" || true
-
-# Focus op Chrome als finale focus (alleen voor develop profiel)
-if [[ -n "$CHROME_WID" && -n "$GHOSTTY_WID" && -n "$RUBYMINE_WID" && -n "$VSCODE_WID" ]]; then
-  echo "Setting focus to Chrome as final focus..." >&2
-  retry_with_backoff 3 aero focus --window-id "$RUBYMINE_WID" || true
+  
+  if [[ -n "$RUBYMINE_WID" ]]; then
+    aero focus --window-id "$RUBYMINE_WID" || true
+  fi
 fi
 
 if [[ "$QUIET" != "true" ]]; then
