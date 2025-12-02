@@ -132,28 +132,37 @@ alias lint="git diff --name-only develop | xargs ls -1 2>/dev/null | grep '\.ham
 alias edit-keyboard="vim ~/.config/kanata/config.kbd"
 alias reload-keyboard='sudo launchctl bootout system /Library/LaunchDaemons/com.jeffrey.kanata.plist && sudo launchctl bootstrap system /Library/LaunchDaemons/com.jeffrey.kanata.plist'
 
-alias dev-dhh="~/dev-setup/bin/workspace --profile develop --product dhh"
-alias dev-wmk="~/dev-setup/bin/workspace --profile develop --product wmk"
-alias dev-msp="~/dev-setup/bin/workspace --profile develop --product msp"
-alias dev-mst="~/dev-setup/bin/workspace --profile develop --product mst"
+# Workspace management aliases
+alias chrome-prive="~/dev-setup/bin/chrome-prive"
 
-alias close-2="~/dev-setup/bin/ws-close --workspace 2"
-alias close-3="~/dev-setup/bin/ws-close --workspace 3"
+# Smart workspace functions
+dev() {
+  if [ -z "$1" ]; then
+    echo "Usage: dev <product>"
+    echo "Available: dhh, wmk, msp, mst"
+    return 1
+  fi
+  ~/dev-setup/bin/workspace --profile develop --product "$1"
+}
+
+close() {
+  local workspace="${1:-2}"  # default to workspace 2 if no argument
+  ~/dev-setup/bin/ws-close --workspace "$workspace"
+}
+
+pipeline() {
+  if [ -z "$1" ]; then
+    echo "Usage: pipeline <product> [env]"
+    echo "Products: dhh, wmk, msp, mst"
+    echo "Environments: test (default), acceptatie, productie"
+    return 1
+  fi
+  local product="$1"
+  local env="${2:-test}"  # default to test if not specified
+  ~/dev-setup/bin/workspace --profile ci-cd-pipeline --product "$product" --env "$env"
+}
 
 alias dhh-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product dhh --env test"
-alias wmk-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product wmk --env test"
-alias msp-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product msp --env test"
-alias mst-test="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product mst --env test"
-
-alias dhh-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product dhh --env acceptatie"
-alias wmk-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product wmk --env acceptatie"
-alias msp-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product msp --env acceptatie"
-alias mst-release="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product mst --env acceptatie"
-
-alias dhh-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product dhh --env productie"
-alias wmk-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product wmk --env productie"
-alias msp-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product msp --env productie"
-alias mst-prod="~/dev-setup/bin/workspace --profile ci-cd-pipeline --product mst --env productie"
 
 # Load Angular CLI autocompletion.
 source <(ng completion script)
