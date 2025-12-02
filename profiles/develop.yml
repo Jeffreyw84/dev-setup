@@ -5,7 +5,7 @@ layout:
     - orientation: v_accordion
       windows: [web, gitui]
     - orientation: v_accordion
-      windows: [rubymine, code]
+      windows: [rubymine] # , code (temporarily disabled)
 
 windows:
   - id: web
@@ -22,6 +22,6 @@ windows:
     app: rubymine
     project: /Users/jeffrey/Documents/Projects/{{product}}
 
-  - id: code
-    app: vscode
-    project: /Users/jeffrey/Documents/Projects/{{product}}
+  # - id: code
+  #   app: vscode
+  #   project: /Users/jeffrey/Documents/Projects/{{product}}
