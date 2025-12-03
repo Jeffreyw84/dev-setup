@@ -138,11 +138,17 @@ alias chrome-prive="~/dev-setup/bin/chrome-prive"
 # Smart workspace functions
 dev() {
   if [ -z "$1" ]; then
-    echo "Usage: dev <product>"
+    echo "Usage: dev <product> [ticket]"
     echo "Available: dhh, wmk, msp, mst"
     return 1
   fi
-  ~/dev-setup/bin/workspace --profile develop --product "$1"
+  local product="$1"
+  local ticket="$2"
+  if [ -n "$ticket" ]; then
+    ~/dev-setup/bin/workspace --profile develop --product "$product" --ticket "$ticket"
+  else
+    ~/dev-setup/bin/workspace --profile develop --product "$product"
+  fi
 }
 
 close() {
