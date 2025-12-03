@@ -118,7 +118,7 @@ export NVM_DIR="$HOME/.nvm"
   [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion
 
 
-eval "$(zoxide init --cmd cd zsh)"
+ "$(zoxide init --cmd cd zsh)"
 
 # Aliassen
 alias edit_credentials="EDITOR=vim rails credentials:edit"
@@ -169,44 +169,4 @@ source <(ng completion script)
 
 PATH="/Users/jeffrey/.nvm/versions/node/v16.20.2/bin:$PATH"
 
-#custom funcs
-function dev() {
-  # Check if the project directory is passed as an argument
-  if [ -z "$1" ]; then
-
-    echo "Please provide a project directory!"
-    return 1
-  fi
-
-  # Handle the case when '.' or '..' is passed
-  if [ "$1" = "." ] || [ "$1" = ".." ]; then
-    target_dir=$(pwd -P)  # Get the real path of the current or parent directory
-  else
-    target_dir=~/Documents/Projects/$1  # Use the provided directory inside ~/GITHUB
-  fi
-
-  # Expand the tilde (~) to the actual home path
-  target_dir=$(eval echo $target_dir)
-
-  # Check if the current directory is the target directory
-  if [ "$PWD" != "$target_dir" ]; then
-    # Change directory to the provided GitHub directory using 'cdi'
-    cdi $target_dir
-    
-    # Check if the directory change was successful
-    if [ $? -ne 0 ]; then
-      echo "Directory not found or 'cdi' failed!"
-      return 1
-    fi
-  fi
-
-  # Open RubyMine in the current directory
-  rubymine .
-
-  # Wait for RubyMine to open before proceeding
-  wait $!
-
-  # After RubyMine is opened, run Lazygit
-  lazygit
-}
 export PATH="$HOME/dev-setup/bin:$PATH"
