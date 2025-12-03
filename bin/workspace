@@ -44,7 +44,12 @@ if [[ "$QUIET" != "true" ]]; then
   echo "== workspace ($PROFILE) =="
 fi
 
+
+# Forceer workspace 2 voor dev producten
 WS="$("$YQ_BIN" -r '.workspace // "2"' "$PROFILE_FILE")"
+if [[ "$PRODUCT" == "dev" ]]; then
+  WS="2"
+fi
 
 
 # verzamel windows-defs als JSON
