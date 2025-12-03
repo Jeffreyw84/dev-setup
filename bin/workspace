@@ -7,6 +7,7 @@ PROFILE=""
 CLEAN=false
 PRODUCT=""
 ENVIRONMENT=""
+TICKET=""
 QUIET=false
 
 while [[ $# -gt 0 ]]; do
@@ -15,8 +16,9 @@ while [[ $# -gt 0 ]]; do
     -c|--clean) CLEAN=true; shift ;;
     --product) PRODUCT="$2"; shift 2 ;;
     --env) ENVIRONMENT="$2"; shift 2 ;;
+    --ticket) TICKET="$2"; shift 2 ;;
     -q|--quiet) QUIET=true; shift ;;
-    *) echo "Usage: $0 --profile <name> [--clean] [--product <naam>] [--env <naam>] [--quiet]"; exit 1 ;;
+    *) echo "Usage: $0 --profile <name> [--clean] [--product <naam>] [--env <naam>] [--ticket <nummer>] [--quiet]"; exit 1 ;;
   esac
 done
 [[ -n "$PROFILE" ]] || { echo "Error: geen profile opgegeven"; exit 1; }
@@ -61,6 +63,8 @@ replace_placeholders() {
   local input="$1"
   # Vervang {{env}} eerst
   input="${input//\{\{env\}\}/$ENVIRONMENT}"
+  # Vervang {{ticket}}
+  input="${input//\{\{ticket\}\}/$TICKET}"
 
   # Jenkins/ArgoCD mappings: standaard generiek, maar kan uitgebreid worden
 
@@ -220,6 +224,12 @@ replace_placeholders() {
 # Pas placeholders toe op JSON
 WINDOWS_JSON="$(replace_placeholders "$RAW_WINDOWS_JSON")"
 LAYOUT_JSON="$(replace_placeholders "$RAW_LAYOUT_JSON")"
+
+# Filter jira window uit als er geen ticket is opgegeven
+if [[ -z "$TICKET" ]]; then
+  WINDOWS_JSON="$(echo "$WINDOWS_JSON" | "$JQ_BIN" -c '[.[] | select(.id != "jira")]')"
+  LAYOUT_JSON="$(echo "$LAYOUT_JSON" | "$JQ_BIN" -c 'map(.windows |= map(select(. != "jira")))')"
+fi
 
 # helper die opener kiest (specifiek of generiek) en WID teruggeeft
 open_item() {
@@ -384,9 +394,11 @@ for col_idx in $(seq 0 $((cols_count-1))); do
     QUIET="$QUIET" wid="$(open_item "$app" "${kvs[@]}")" || { echo "Openen faalde: $app"; exit 1; }
   fi
   
-  # Wacht tot venster beschikbaar is
-  if ! wait_for_window "$wid"; then
-    echo "Warning: Window $wid not found in aerospace, continuing anyway..." >&2
+  # Wacht tot venster beschikbaar is (skip voor chrome-tab omdat het geen aerospace window is)
+  if [[ "$app" != "chrome-tab" ]]; then
+    if ! wait_for_window "$wid"; then
+      echo "Warning: Window $wid not found in aerospace, continuing anyway..." >&2
+    fi
   fi
   
   set_id_wid "$anchor_id" "$wid"
@@ -412,9 +424,11 @@ for col_idx in $(seq 0 $((cols_count-1))); do
 
       QUIET="$QUIET" w_wid="$(open_item "$wapp" "${wargs[@]}")" || { echo "Openen faalde: $wapp"; exit 1; }
       
-      # Wacht tot venster beschikbaar is
-      if ! wait_for_window "$w_wid"; then
-        echo "Warning: Window $w_wid not found in aerospace, continuing anyway..." >&2
+      # Wacht tot venster beschikbaar is (skip voor chrome-tab omdat het geen aerospace window is)
+      if [[ "$wapp" != "chrome-tab" ]]; then
+        if ! wait_for_window "$w_wid"; then
+          echo "Warning: Window $w_wid not found in aerospace, continuing anyway..." >&2
+        fi
       fi
       
       set_id_wid "$w_id" "$w_wid"
