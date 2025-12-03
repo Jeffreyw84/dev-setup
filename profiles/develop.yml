@@ -3,7 +3,7 @@ workspace: 2
 layout:
   columns:
     - orientation: v_accordion
-      windows: [web, gitui]
+      windows: [web, jira, gitui]
     - orientation: tiles
       windows: [rubymine]
 
@@ -11,6 +11,11 @@ windows:
   - id: web
     app: chrome
     url: "{{develop_url}}"
+    profile: "Profile 7"
+
+  - id: jira
+    app: chrome-tab
+    url: "https://topicuseducation.atlassian.net/browse/SKW-{{ticket}}"
     profile: "Profile 7"
 
   - id: gitui
