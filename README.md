@@ -139,6 +139,22 @@ Je kunt veilig meerdere development workspaces hebben:
 
 Elk workspace behoudt zijn eigen processen en vensters.
 
+## 🏷️ Jira tickets automatisch openen
+
+Je kunt nu een ticketnummer meegeven aan de `dev` functie. Hierdoor wordt automatisch een extra tabblad geopend in Chrome met het juiste Jira-ticket:
+
+```bash
+# Start je workspace en open direct een Jira ticket
+
+dev dhh 1707
+```
+
+Dit opent:
+- Je normale development omgeving (Chrome, RubyMine, Lazygit)
+- Een extra tabblad in Chrome met: https://topicuseducation.atlassian.net/browse/SKW-1707
+
+Het ticketnummer is optioneel. Zonder ticketnummer werkt alles zoals voorheen.
+
 ## 🔍 Troubleshooting
 
 ### AeroSpace niet gevonden
