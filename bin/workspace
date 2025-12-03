@@ -310,6 +310,13 @@ get_wid_for_id() {
 
 # Workspace actief en baseline schoon
 
+# BEVEILIGING: Voorkom dat workspace 1 gebruikt wordt
+if [[ "$WS" == "1" ]]; then
+  echo "❌ ERROR: Workspace 1 is beschermd en kan niet gebruikt worden door dit script!"
+  echo "Controleer het profiel: $PROFILE_FILE"
+  exit 1
+fi
+
 # Switch naar workspace en maak schoon
 if [[ "$QUIET" != "true" ]]; then
   echo "Switchen naar workspace $WS..."
@@ -321,8 +328,17 @@ if [[ "$QUIET" != "true" ]]; then
 fi
 "$HOME/dev-setup/bin/ws-close" --workspace "$WS" 2>/dev/null || true
 
-# Switch terug naar de juiste workspace (ws-close kan workspace veranderen)
+# KRITIEKE FIX: Forceer workspace switch en wacht tot actief
 aero workspace "$WS" || true
+sleep 0.5  # Geef aerospace tijd om de switch te verwerken
+
+# Verificatie: Check dat we daadwerkelijk in de juiste workspace zitten
+CURRENT_WS=$(aero list-workspaces --focused)
+if [[ "$CURRENT_WS" != "$WS" ]]; then
+  echo "⚠️  WARNING: Focus is op workspace $CURRENT_WS, opnieuw switchen naar $WS..."
+  aero workspace "$WS" || true
+  sleep 0.5
+fi
 
 aero flatten-workspace-tree || true
 aero layout tiles || true
@@ -354,6 +370,8 @@ for col_idx in $(seq 0 $((cols_count-1))); do
   kvs_raw="$(echo "$anchor_item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\"\(.value|tostring)\"") | join(" ")')"
   eval "kvs=($kvs_raw)"
 
+  # Zorg dat we in de juiste workspace zijn voordat we openen
+  aero workspace "$WS" || true
   
   if [[ "$QUIET" == "true" ]]; then
     QUIET="$QUIET" wid="$(open_item "$app" "${kvs[@]}" 2>/dev/null)" || { echo "Openen faalde: $app"; exit 1; }
@@ -383,6 +401,9 @@ for col_idx in $(seq 0 $((cols_count-1))); do
       wapp="$(echo "$item" | "$JQ_BIN" -r '.app')"
       wargs_raw="$(echo "$item" | "$JQ_BIN" -r 'del(.app,.id) | to_entries | map("\(.key)=\"\(.value|tostring)\"") | join(" ")')"
       eval "wargs=($wargs_raw)"
+
+      # Zorg dat we in de juiste workspace zijn voordat we openen
+      aero workspace "$WS" || true
 
       QUIET="$QUIET" w_wid="$(open_item "$wapp" "${wargs[@]}")" || { echo "Openen faalde: $wapp"; exit 1; }
       
