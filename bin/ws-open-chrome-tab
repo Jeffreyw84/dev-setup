@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# ws-open-chrome-tab — opent een nieuwe tab in een bestaand Chrome venster
+set -euo pipefail
+
+URL="about:blank"; PROFILE=""
+
+for kv in "$@"; do
+  case "$kv" in
+    url=*)     URL="${kv#*=}" ;;
+    profile=*) PROFILE="${kv#*=}" 
+               # Verwijder quotes als ze aanwezig zijn
+               PROFILE="${PROFILE#\"}"
+               PROFILE="${PROFILE%\"}" ;;
+    *) ;; # negeer onbekende keys
+  esac
+done
+
+[[ -n "$URL" ]] || { echo "url= is verplicht" >&2; exit 1; }
+
+# Gebruik AppleScript om een nieuwe tab te openen in het bestaande venster
+# Dit werkt alleen als Chrome al draait en een venster heeft
+
+osascript <<EOF
+tell application "Google Chrome"
+  if (count of windows) > 0 then
+    tell window 1
+      set newTab to make new tab at end of tabs
+      set URL of newTab to "$URL"
+    end tell
+  else
+    make new window with properties {URL:"$URL"}
+  end if
+end tell
+EOF
+
+# Geef tijd om de tab te openen
+sleep 0.5
+
+# Return een dummy window ID (we kunnen de echte ID niet makkelijk krijgen voor een tab)
+echo "chrome-tab-$$"
